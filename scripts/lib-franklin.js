@@ -104,7 +104,6 @@ export function createOptimizedPicture(src, alt = '', eager = false, breakpoints
  * load LCP block and/or wait for LCP in default content.
  */
 async function waitForLCP(lcpBlocks) {
-  document.querySelector('body').classList.add('appear');
   const lcpCandidate = document.querySelector('main img');
   await new Promise((resolve) => {
     if (lcpCandidate && !lcpCandidate.complete) {
@@ -131,6 +130,7 @@ export async function loadPage(options = {}) {
   }
 
   await waitForLCP(options.lcpBlocks || []);
+  document.querySelector('body').classList.add('appear');
 
   const main = document.querySelector('main');
   // await loadBlocks(main);
