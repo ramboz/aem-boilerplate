@@ -1,4 +1,9 @@
 /* header and nav layout */
+header {
+  height: 64px;
+  overflow: hidden;
+}
+
 header nav {
   display: grid;
   grid-template:

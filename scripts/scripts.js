@@ -58,6 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.querySelectorAll('body .block:not(.default):not(.htmx-request)').forEach(loadBlock);
+  document.body.classList.add('appear');
 });
 
 const header = document.querySelector('body>header');
@@ -74,7 +75,7 @@ footer.dataset.blockName = 'footer';
 footer.dataset.hxGet = '/footer.plain.html';
 footer.dataset.hxTrigger = 'load';
 
-document.addEventListener('htmx:afterSettle', (ev) => {
+document.addEventListener('htmx:beforeSwap', (ev) => {
   if (ev.target.classList.contains('block')) {
     loadBlock(ev.target);
   }
