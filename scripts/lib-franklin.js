@@ -99,3 +99,52 @@ export function createOptimizedPicture(src, alt = '', eager = false, breakpoints
 
   return picture;
 }
+
+/**
+ * load LCP block and/or wait for LCP in default content.
+ */
+async function waitForLCP(lcpBlocks) {
+  document.querySelector('body').classList.add('appear');
+  const lcpCandidate = document.querySelector('main img');
+  await new Promise((resolve) => {
+    if (lcpCandidate && !lcpCandidate.complete) {
+      lcpCandidate.setAttribute('loading', 'eager');
+      lcpCandidate.addEventListener('load', resolve);
+      lcpCandidate.addEventListener('error', resolve);
+    } else {
+      resolve();
+    }
+  });
+}
+
+/**
+ * The main loading logic for the page.
+ * It defines the 3 phases (eager, lazy, delayed), and registers both
+ * plugins and project hooks.
+ *
+ * @param {object} options
+ * @returns
+ */
+export async function loadPage(options = {}) {
+  if (options.loadEager) {
+    await options.loadEager(document, options);
+  }
+
+  await waitForLCP(options.lcpBlocks || []);
+
+  const main = document.querySelector('main');
+  // await loadBlocks(main);
+
+  if (options.loadLazy) {
+    await options.loadLazy(document, options);
+  }
+
+  return new Promise((resolve) => {
+    window.setTimeout(async () => {
+      if (options.loadDelayed) {
+        await options.loadDelayed(document, options);
+      }
+      resolve();
+    }, options.delayedDuration || 3000);
+  });
+}
