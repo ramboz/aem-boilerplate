@@ -58,6 +58,7 @@ body.appear {
 
 header {
   height: var(--nav-height);
+  overflow: hidden;
 }
 
 h1, h2, h3,
