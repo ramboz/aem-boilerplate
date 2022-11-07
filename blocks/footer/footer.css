@@ -1,14 +1,11 @@
-footer {
+.footer {
   padding: 2rem;
   background-color: var(--overlay-background-color);
   font-size: var(--body-font-size-s);
-}
-
-footer .footer {
   max-width: 1200px;
   margin: auto;
 }
 
-footer .footer p {
+.footer p {
   margin: 0;
 }
