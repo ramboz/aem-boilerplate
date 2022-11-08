@@ -122,12 +122,8 @@ export function createOptimizedPicture(src, alt = '', eager = false, breakpoints
  * load LCP block and/or wait for LCP in default content.
  */
 async function waitForLCP(lcpBlocks) {
-  const block = document.querySelector('.block');
-  const hasLCPBlock = (block && lcpBlocks.includes(block.getAttribute('data-block-name')));
-  if (hasLCPBlock) await loadBlock(block);
-
   const lcpCandidate = document.querySelector('main img');
-  await new Promise((resolve) => {
+  const lcpLoadedLoaded = new Promise((resolve) => {
     if (lcpCandidate && !lcpCandidate.complete) {
       lcpCandidate.setAttribute('loading', 'eager');
       lcpCandidate.addEventListener('load', resolve);
@@ -136,6 +132,12 @@ async function waitForLCP(lcpBlocks) {
       resolve();
     }
   });
+
+  const block = document.querySelector('.block');
+  const isLcpBlock = (block && lcpBlocks.includes(block.getAttribute('data-block-name')));
+  const lcpBlockLoaded = isLcpBlock ? loadBlock(block) : Promise.resolve();
+
+  await Promise.all([lcpLoadedLoaded, lcpBlockLoaded]);
 }
 
 /**
