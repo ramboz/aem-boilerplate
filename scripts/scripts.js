@@ -6,6 +6,7 @@ import {
 
 init({
   lcpBlocks: ['hero'],
+  withCwv: true,
   loadEager: () => {
     const hero = document.querySelector('.section .block');
     decorateBlock(hero, 'hero');
