@@ -123,20 +123,24 @@ export function createOptimizedPicture(src, alt = '', eager = false, breakpoints
   return picture;
 }
 
+export function decorateBlock(block, blockName) {
+  block.dataset.blockName = blockName || block.classList[0];
+  block.classList.add('block');
+  block.classList.add(block.dataset.blockName);
+  if (blockName && blockName !== 'default') {
+    block.classList.remove('default');
+  }
+}
+
 function decorateSections() {
-  document.querySelectorAll('main>div').forEach((section, i) => {
+  document.querySelectorAll('main>div').forEach((section) => {
     section.classList.add('section');
     let defaultBlock;
-    [...section.children].forEach((block, j) => {
+    [...section.children].forEach((block) => {
       if (block.nodeName !== 'DIV' && !defaultBlock) {
         defaultBlock = document.createElement('div');
-        if (!i && !j) {
-          defaultBlock.classList.add('hero');
-        } else {
-          defaultBlock.classList.add('default');
-        }
-        defaultBlock.classList.add('block');
-        [defaultBlock.dataset.blockName] = defaultBlock.classList;
+        defaultBlock.classList.add('default');
+        decorateBlock(defaultBlock);
         section.insertBefore(defaultBlock, block);
         defaultBlock.append(block);
         return;
@@ -150,8 +154,7 @@ function decorateSections() {
         defaultBlock = null;
       }
 
-      [block.dataset.blockName] = block.classList;
-      block.classList.add('block');
+      decorateBlock(block);
 
       /* process section metadata */
       if (block.dataset.blockName === 'section-metadata') {
