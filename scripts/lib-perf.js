@@ -3,7 +3,7 @@ export function trackLcp() {
     const entries = entryList.getEntries();
     const entry = entries[entries.length - 1];
     const lcp = entry.renderTime || entry.loadTime;
-    console.log('LCP:', lcp, entry);
+    console.log('LCP:', lcp, entry.element);
   }).observe({ type: 'largest-contentful-paint', buffered: true });
 }
 
