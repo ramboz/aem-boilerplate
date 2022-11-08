@@ -203,7 +203,11 @@ async function waitForLCP(lcpBlocks) {
  * @param {object} options
  * @returns
  */
-export async function loadPage(options = {}) {
+export async function init(options = {}) {
+  if (options.withCwv && (window.location.hostname === 'localhost' || window.location.hostname.endsWith('.hlx.page'))) {
+    const { trackAll } = await import('./lib-perf.js');
+    trackAll();
+  }
   const { lcpBlocks = [] } = options;
   const lcpCandidate = document.querySelector('main img');
   if (lcpCandidate) {
@@ -239,27 +243,3 @@ export async function loadPage(options = {}) {
     }, options.delayedDuration || 3000);
   });
 }
-
-let lcp;
-
-new PerformanceObserver((entryList) => {
-  const entries = entryList.getEntries();
-  const entry = entries[entries.length - 1];
-  lcp = entry.renderTime || entry.loadTime;
-  console.log('LCP:', lcp, entry);
-}).observe({ type: 'largest-contentful-paint', buffered: true });
-
-new PerformanceObserver((entryList) => {
-  const entries = entryList.getEntriesByName('first-contentful-paint');
-  entries.forEach((entry) => {
-    console.log('FCP:', entry.startTime, entry);
-  });
-}).observe({ type: 'paint', buffered: true });
-
-new PerformanceObserver((entryList) => {
-  const entries = entryList.getEntries();
-  entries.forEach((entry) => {
-    const delay = entry.processingStart - entry.startTime;
-    console.log('FID:', delay, entry);
-  });
-}).observe({ type: 'first-input', buffered: true });

@@ -1,10 +1,10 @@
 import {
   decorateBlock,
   loadBlock,
-  loadPage,
+  init,
 } from './lib-franklin.js';
 
-loadPage({
+init({
   lcpBlocks: ['hero'],
   loadEager: () => {
     const hero = document.querySelector('.section .block');
