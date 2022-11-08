@@ -52,8 +52,13 @@ body {
   display: none;
 }
 
-body.appear {
-  display: unset;
+div.block {
+  display: none;
+}
+
+body[data-status="loaded"],
+.block[data-status="loaded"] {
+  display: block;
 }
 
 header {
@@ -229,8 +234,4 @@ main img {
 
 main .section.highlight {
   background-color: var(--highlight-background-color);
-}
-
-.block[data-is-loading] {
-  opacity: 0;
 }

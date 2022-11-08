@@ -49,7 +49,7 @@ export async function loadContent(path, element) {
 }
 
 export async function loadBlock(block, contentUrl) {
-  block.dataset.isLoading = true;
+  block.dataset.status = 'loading';
   const { blockName = block.classList[0] } = block.dataset;
   const contentLoaded = contentUrl ? loadContent(contentUrl, block) : Promise.resolve();
   try {
@@ -68,13 +68,12 @@ export async function loadBlock(block, contentUrl) {
         } catch (error) {
           console.log(`failed to load module for ${blockName}`, error);
         }
-      })
-      .catch();
+      });
   } catch (error) {
     // eslint-disable-next-line no-console
     console.log(`failed to load block ${blockName}`, error);
   }
-  delete block.dataset.isLoading;
+  block.dataset.status = 'loaded';
 }
 
 /**
@@ -189,6 +188,8 @@ async function waitForLCP(lcpBlocks) {
   await Promise.all([lcpLoadedLoaded, lcpBlockLoaded]);
 }
 
+document.querySelector('body').dataset.status = 'loading';
+
 /**
  * The main loading logic for the page.
  * It defines the 3 phases (eager, lazy, delayed), and registers both
@@ -215,7 +216,7 @@ export async function init(options = {}) {
   }
 
   await waitForLCP(lcpBlocks);
-  document.querySelector('body').classList.add('appear');
+  document.querySelector('body').dataset.status = 'loaded';
 
   const main = document.querySelector('main');
   const blocks = [...main.querySelectorAll('.block:not(.default)')];
