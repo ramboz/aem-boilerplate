@@ -236,3 +236,27 @@ export async function loadPage(options = {}) {
     }, options.delayedDuration || 3000);
   });
 }
+
+let lcp;
+
+new PerformanceObserver((entryList) => {
+  const entries = entryList.getEntries();
+  const entry = entries[entries.length - 1];
+  lcp = entry.renderTime || entry.loadTime;
+  console.log('LCP:', lcp, entry);
+}).observe({ type: 'largest-contentful-paint', buffered: true });
+
+new PerformanceObserver((entryList) => {
+  const entries = entryList.getEntriesByName('first-contentful-paint');
+  entries.forEach((entry) => {
+    console.log('FCP:', entry.startTime, entry);
+  });
+}).observe({ type: 'paint', buffered: true });
+
+new PerformanceObserver((entryList) => {
+  const entries = entryList.getEntries();
+  entries.forEach((entry) => {
+    const delay = entry.processingStart - entry.startTime;
+    console.log('FID:', delay, entry);
+  });
+}).observe({ type: 'first-input', buffered: true });
