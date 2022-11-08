@@ -35,9 +35,16 @@ export function loadCSS(href, callback) {
   }
 }
 
-export async function loadBlock(block) {
+export async function loadBlock(block, contentUrl) {
   block.dataset.isLoading = true;
-  const { blockName, hxGet, hxTrigger } = block.dataset;
+  if (contentUrl && !block.dataset.hxGet) {
+    block.dataset.hxGet = contentUrl;
+  }
+  const {
+    blockName = block.classList[0],
+    hxGet,
+    hxTrigger,
+  } = block.dataset;
   const contentLoaded = hxGet
     ? new Promise((resolve) => {
       if (!hxTrigger) {
@@ -118,6 +125,53 @@ export function createOptimizedPicture(src, alt = '', eager = false, breakpoints
   return picture;
 }
 
+function decorateSections() {
+  document.querySelectorAll('main>div').forEach((section, i) => {
+    section.classList.add('section');
+    let defaultBlock;
+    [...section.children].forEach((block, j) => {
+      if (block.nodeName !== 'DIV' && !defaultBlock) {
+        defaultBlock = document.createElement('div');
+        if (!i && !j) {
+          defaultBlock.classList.add('hero');
+        } else {
+          defaultBlock.classList.add('default');
+        }
+        defaultBlock.classList.add('block');
+        [defaultBlock.dataset.blockName] = defaultBlock.classList;
+        section.insertBefore(defaultBlock, block);
+        defaultBlock.append(block);
+        return;
+      }
+      if (block.nodeName !== 'DIV') {
+        defaultBlock.append(block);
+        return;
+      }
+
+      if (defaultBlock) {
+        defaultBlock = null;
+      }
+
+      [block.dataset.blockName] = block.classList;
+      block.classList.add('block');
+
+      /* process section metadata */
+      if (block.dataset.blockName === 'section-metadata') {
+        [...block.children].forEach((child) => {
+          const prop = toCamelCase(child.children[0].innerText);
+          const value = child.children[1].innerText;
+          if (prop === 'style') {
+            section.classList.add(value);
+          } else {
+            section.dataset[prop] = value;
+          }
+        });
+        block.remove();
+      }
+    });
+  });
+}
+
 /**
  * load LCP block and/or wait for LCP in default content.
  */
@@ -152,6 +206,8 @@ export async function loadPage(options = {}) {
   const { lcpBlocks = [] } = options;
   const lcpCandidate = document.querySelector('main img');
   lcpCandidate.fetchPriority = 'high';
+
+  decorateSections()
 
   if (options.loadEager) {
     await options.loadEager(document, options);
