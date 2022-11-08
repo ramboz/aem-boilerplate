@@ -4,13 +4,8 @@ import {
   loadPage,
 } from './lib-franklin.js';
 
-document.addEventListener('htmx:afterRequest', (ev) => {
-  if (ev.target.classList.contains('block')) {
-    loadBlock(ev.target);
-  }
-});
-
 loadPage({
+  lcpBlocks: ['hero'],
   loadEager: () => {
     document.querySelectorAll('main>div').forEach((section, i) => {
       section.classList.add('section');
@@ -56,7 +51,6 @@ loadPage({
         }
       });
     });
-    document.querySelectorAll('body .block.hero').forEach(loadBlock);
   },
   loadLazy: () => {
     const header = document.querySelector('body>header');
@@ -64,16 +58,14 @@ loadPage({
     header.classList.add('block');
     header.dataset.blockName = 'header';
     header.dataset.hxGet = '/nav.plain.html';
-    header.dataset.hxTrigger = 'load';
-    htmx.process(header);
+    loadBlock(header);
 
     const footer = document.querySelector('body>footer');
     footer.classList.add('footer');
     footer.classList.add('block');
     footer.dataset.blockName = 'footer';
     footer.dataset.hxGet = '/footer.plain.html';
-    footer.dataset.hxTrigger = 'load';
-    htmx.process(footer);
+    loadBlock(footer);
 
     document.querySelectorAll('main a:only-child').forEach((button) => {
       button.classList.add('button');
@@ -83,7 +75,7 @@ loadPage({
       }
     });
 
-    document.querySelectorAll('main .block:not(.default):not(.htmx-request)').forEach(loadBlock);
+    document.querySelectorAll('body .block:not(.default):not(.hero)').forEach(loadBlock);
   },
   loadDelayed: () => {},
 });

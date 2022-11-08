@@ -1,3 +1,5 @@
+htmx.config.includeIndicatorStyles = false;
+
 /**
  * Sanitizes a name for use as class name.
  * @param {string} name The unsanitized name
@@ -35,32 +37,46 @@ export function loadCSS(href, callback) {
 
 export async function loadBlock(block) {
   block.dataset.isLoading = true;
-  const { blockName } = block.dataset;
+  const { blockName, hxGet, hxTrigger } = block.dataset;
+  const contentLoaded = hxGet
+    ? new Promise((resolve) => {
+      if (!hxTrigger) {
+        block.dataset.hxTrigger = 'load';
+      }
+      block.addEventListener('htmx:afterRequest', () => resolve(), { once: true });
+      htmx.process(block);
+    })
+    : Promise.resolve();
   try {
     const cssLoaded = new Promise((resolve) => {
       loadCSS(`/blocks/${blockName}/${blockName}.css`, resolve);
     });
-    const decorationComplete = new Promise((resolve) => {
-      (async () => {
+    const jsLoaded = import(`/blocks/${blockName}/${blockName}.js`);
+    await Promise.all([jsLoaded, cssLoaded, contentLoaded])
+      .then(([mod]) => {
         try {
-          const mod = await import(`/blocks/${blockName}/${blockName}.js`);
-          if (mod.default) {
-            await mod.default(block);
-          }
+          (async () => {
+            if (mod.default) {
+              await mod.default(block);
+            }
+          })();
         } catch (error) {
-          // eslint-disable-next-line no-console
           console.log(`failed to load module for ${blockName}`, error);
         }
-        resolve();
-      })();
-    });
-    await Promise.all([cssLoaded, decorationComplete]);
+      })
+      .catch();
   } catch (error) {
     // eslint-disable-next-line no-console
     console.log(`failed to load block ${blockName}`, error);
   }
   delete block.dataset.isLoading;
 }
+
+document.addEventListener('htmx:afterRequest', (ev) => {
+  if (ev.target.classList.contains('block') && ev.target.dataset.isLoading) {
+    loadBlock(ev.target);
+  }
+});
 
 /**
  * Returns a picture element with webp and fallbacks
@@ -106,6 +122,10 @@ export function createOptimizedPicture(src, alt = '', eager = false, breakpoints
  * load LCP block and/or wait for LCP in default content.
  */
 async function waitForLCP(lcpBlocks) {
+  const block = document.querySelector('.block');
+  const hasLCPBlock = (block && lcpBlocks.includes(block.getAttribute('data-block-name')));
+  if (hasLCPBlock) await loadBlock(block);
+
   const lcpCandidate = document.querySelector('main img');
   await new Promise((resolve) => {
     if (lcpCandidate && !lcpCandidate.complete) {
@@ -127,6 +147,7 @@ async function waitForLCP(lcpBlocks) {
  * @returns
  */
 export async function loadPage(options = {}) {
+  const { lcpBlocks = [] } = options;
   const lcpCandidate = document.querySelector('main img');
   lcpCandidate.fetchPriority = 'high';
 
@@ -134,7 +155,7 @@ export async function loadPage(options = {}) {
     await options.loadEager(document, options);
   }
 
-  await waitForLCP(options.lcpBlocks || []);
+  await waitForLCP(lcpBlocks);
   document.querySelector('body').classList.add('appear');
 
   const main = document.querySelector('main');
