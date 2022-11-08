@@ -134,7 +134,7 @@ async function waitForLCP(lcpBlocks) {
   });
 
   const block = document.querySelector('.block');
-  const isLcpBlock = (block && lcpBlocks.includes(block.getAttribute('data-block-name')));
+  const isLcpBlock = (block && lcpBlocks.includes(block.dataset.blockName));
   const lcpBlockLoaded = isLcpBlock ? loadBlock(block) : Promise.resolve();
 
   await Promise.all([lcpLoadedLoaded, lcpBlockLoaded]);
@@ -161,7 +161,11 @@ export async function loadPage(options = {}) {
   document.querySelector('body').classList.add('appear');
 
   const main = document.querySelector('main');
-  // await loadBlocks(main);
+  const blocks = [...main.querySelectorAll('.block:not(.default)')];
+  for (let i = 0; i < blocks.length; i += 1) {
+    // eslint-disable-next-line no-await-in-loop
+    await loadBlock(blocks[i]);
+  }
 
   if (options.loadLazy) {
     await options.loadLazy(document, options);

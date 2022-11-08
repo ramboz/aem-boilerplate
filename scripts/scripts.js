@@ -74,8 +74,6 @@ loadPage({
         button.parentElement.replaceWith(button);
       }
     });
-
-    document.querySelectorAll('body .block:not(.default):not(.hero)').forEach(loadBlock);
   },
   loadDelayed: () => {},
 });
