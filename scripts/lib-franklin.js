@@ -33,25 +33,25 @@ export function loadCSS(href, callback) {
   }
 }
 
+export async function loadContent(path, element) {
+  try {
+    const resp = await fetch(path);
+    if (!resp.ok) {
+      console.log('error loading experiment content:', resp);
+      return null;
+    }
+    const html = await resp.text();
+    element.innerHTML = html;
+  } catch (e) {
+    console.log(`error loading experiment content: ${path}`, e);
+  }
+  return null;
+}
+
 export async function loadBlock(block, contentUrl) {
   block.dataset.isLoading = true;
-  if (contentUrl && !block.dataset.hxGet) {
-    block.dataset.hxGet = contentUrl;
-  }
-  const {
-    blockName = block.classList[0],
-    hxGet,
-    hxTrigger,
-  } = block.dataset;
-  const contentLoaded = hxGet
-    ? new Promise((resolve) => {
-      if (!hxTrigger) {
-        block.dataset.hxTrigger = 'load';
-      }
-      block.addEventListener('htmx:afterRequest', () => resolve(), { once: true });
-      htmx.process(block);
-    })
-    : Promise.resolve();
+  const { blockName = block.classList[0] } = block.dataset;
+  const contentLoaded = contentUrl ? loadContent(contentUrl, block) : Promise.resolve();
   try {
     const cssLoaded = new Promise((resolve) => {
       loadCSS(`/blocks/${blockName}/${blockName}.css`, resolve);
@@ -76,12 +76,6 @@ export async function loadBlock(block, contentUrl) {
   }
   delete block.dataset.isLoading;
 }
-
-document.addEventListener('htmx:afterRequest', (ev) => {
-  if (ev.target.classList.contains('block') && ev.target.dataset.isLoading) {
-    loadBlock(ev.target);
-  }
-});
 
 /**
  * Returns a picture element with webp and fallbacks
