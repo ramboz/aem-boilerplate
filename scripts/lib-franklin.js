@@ -1,5 +1,3 @@
-htmx.config.includeIndicatorStyles = false;
-
 /**
  * Sanitizes a name for use as class name.
  * @param {string} name The unsanitized name
@@ -205,9 +203,11 @@ async function waitForLCP(lcpBlocks) {
 export async function loadPage(options = {}) {
   const { lcpBlocks = [] } = options;
   const lcpCandidate = document.querySelector('main img');
-  lcpCandidate.fetchPriority = 'high';
+  if (lcpCandidate) {
+    lcpCandidate.fetchPriority = 'high';
+  }
 
-  decorateSections()
+  decorateSections();
 
   if (options.loadEager) {
     await options.loadEager(document, options);
