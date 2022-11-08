@@ -10,15 +10,6 @@ init({
   loadEager: () => {
     const hero = document.querySelector('.section .block');
     decorateBlock(hero, 'hero');
-  },
-  loadLazy: () => {
-    const header = document.querySelector('body>header');
-    decorateBlock(header, 'header');
-    loadBlock(header, '/nav.plain.html');
-
-    const footer = document.querySelector('body>footer');
-    decorateBlock(footer, 'footer');
-    loadBlock(footer, '/footer.plain.html');
 
     document.querySelectorAll('main a:only-child').forEach((button) => {
       button.classList.add('button');
@@ -30,6 +21,15 @@ init({
         button.parentElement.replaceWith(button);
       }
     });
+  },
+  loadLazy: () => {
+    const header = document.querySelector('body>header');
+    decorateBlock(header, 'header');
+    loadBlock(header, '/nav.plain.html');
+
+    const footer = document.querySelector('body>footer');
+    decorateBlock(footer, 'footer');
+    loadBlock(footer, '/footer.plain.html');
   },
   loadDelayed: () => {},
 });
