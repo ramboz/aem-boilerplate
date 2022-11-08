@@ -4,21 +4,7 @@ import {
   loadPage,
 } from './lib-franklin.js';
 
-const header = document.querySelector('body>header');
-header.classList.add('header');
-header.classList.add('block');
-header.dataset.blockName = 'header';
-header.dataset.hxGet = '/nav.plain.html';
-header.dataset.hxTrigger = 'load';
-
-const footer = document.querySelector('body>footer');
-footer.classList.add('footer');
-footer.classList.add('block');
-footer.dataset.blockName = 'footer';
-footer.dataset.hxGet = '/footer.plain.html';
-footer.dataset.hxTrigger = 'load';
-
-document.addEventListener('htmx:beforeSwap', (ev) => {
+document.addEventListener('htmx:afterRequest', (ev) => {
   if (ev.target.classList.contains('block')) {
     loadBlock(ev.target);
   }
@@ -47,14 +33,14 @@ loadPage({
           defaultBlock.append(block);
           return;
         }
-  
+
         if (defaultBlock) {
           defaultBlock = null;
         }
-  
+
         [block.dataset.blockName] = block.classList;
         block.classList.add('block');
-  
+
         /* process section metadata */
         if (block.dataset.blockName === 'section-metadata') {
           [...block.children].forEach((child) => {
@@ -73,6 +59,22 @@ loadPage({
     document.querySelectorAll('body .block.hero').forEach(loadBlock);
   },
   loadLazy: () => {
+    const header = document.querySelector('body>header');
+    header.classList.add('header');
+    header.classList.add('block');
+    header.dataset.blockName = 'header';
+    header.dataset.hxGet = '/nav.plain.html';
+    header.dataset.hxTrigger = 'load';
+    htmx.process(header);
+
+    const footer = document.querySelector('body>footer');
+    footer.classList.add('footer');
+    footer.classList.add('block');
+    footer.dataset.blockName = 'footer';
+    footer.dataset.hxGet = '/footer.plain.html';
+    footer.dataset.hxTrigger = 'load';
+    htmx.process(footer);
+
     document.querySelectorAll('main a:only-child').forEach((button) => {
       button.classList.add('button');
       if (button.parentElement.nodeName === 'EM') {
@@ -80,7 +82,8 @@ loadPage({
         button.parentElement.replaceWith(button);
       }
     });
-    document.querySelectorAll('body .block:not(.default):not(.htmx-request)').forEach(loadBlock);
+
+    document.querySelectorAll('main .block:not(.default):not(.htmx-request)').forEach(loadBlock);
   },
   loadDelayed: () => {},
 });

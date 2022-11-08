@@ -3,7 +3,7 @@
  * @param {string} name The unsanitized name
  * @returns {string} The class name
  */
- export function toClassName(name) {
+export function toClassName(name) {
   return typeof name === 'string'
     ? name.toLowerCase().replace(/[^0-9a-z]/gi, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
     : '';
@@ -34,6 +34,7 @@ export function loadCSS(href, callback) {
 }
 
 export async function loadBlock(block) {
+  block.dataset.isLoading = true;
   const { blockName } = block.dataset;
   try {
     const cssLoaded = new Promise((resolve) => {
@@ -58,6 +59,7 @@ export async function loadBlock(block) {
     // eslint-disable-next-line no-console
     console.log(`failed to load block ${blockName}`, error);
   }
+  delete block.dataset.isLoading;
 }
 
 /**
@@ -125,6 +127,9 @@ async function waitForLCP(lcpBlocks) {
  * @returns
  */
 export async function loadPage(options = {}) {
+  const lcpCandidate = document.querySelector('main img');
+  lcpCandidate.fetchPriority = 'high';
+
   if (options.loadEager) {
     await options.loadEager(document, options);
   }
