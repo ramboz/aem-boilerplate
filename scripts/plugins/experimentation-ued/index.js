@@ -328,7 +328,9 @@ export async function preEager(customOptions, plugins) {
   await runExperiment(options, plugins);
 }
 
-export async function postEager() {
+export async function preLazy() {
+  import('./adobe-client-data-layer.min.js');
+  import('./alloy.js');
   if (window.location.hostname.endsWith('hlx.page') || window.location.hostname === ('localhost')) {
     // eslint-disable-next-line import/no-cycle
     import('./preview.js');
