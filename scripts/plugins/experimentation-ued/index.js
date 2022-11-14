@@ -332,8 +332,11 @@ export async function preEager(customOptions, plugins) {
   (window,["alloy"]);
 }
 
+export async function postEager() {
+  import('./alloy.min.js');
+}
+
 export async function preLazy() {
-  import('/scripts/plugins/experimentation-ued/alloy.min.js');
   if (window.location.hostname.endsWith('hlx.page') || window.location.hostname === ('localhost')) {
     // eslint-disable-next-line import/no-cycle
     import('./preview.js');
