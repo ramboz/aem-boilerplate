@@ -834,9 +834,15 @@ export const ExperimentationPlugin = () => {
         ...customOptions,
       };
       await runExperiment(options, plugins);
+
+      !function(n,o){o.forEach(function(o){n[o]||((n.__alloyNS=n.__alloyNS||
+      []).push(o),n[o]=function(){var u=arguments;return new Promise(
+      function(i,l){n[o].q.push([i,l,u])})},n[o].q=[])})}
+      (window,["alloy"]);
     },
 
-    postEager: async () => {
+    preLazy: async () => {
+      import('./plugins/experimentation-ued/alloy.min.js');
       if (window.location.hostname.endsWith('hlx.page') || window.location.hostname === ('localhost')) {
         // eslint-disable-next-line import/no-cycle
         import('./plugins/experimentation-ued/preview.js');
