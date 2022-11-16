@@ -209,7 +209,7 @@ async function runExperiment(config, plugins) {
   const usp = new URLSearchParams(window.location.search);
   const [forcedExperiment, forcedVariant] = usp.has(config.queryParameter) ? usp.get(config.queryParameter).split('/') : [];
 
-  const [experimentConfig, ued]= await Promise.all([
+  const [experimentConfig, ued] = await Promise.all([
     getExperimentConfig(experiment, config),
     import('./ued.min.js'),
   ]);
