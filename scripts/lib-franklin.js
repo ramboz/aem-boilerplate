@@ -10,6 +10,254 @@
  * governing permissions and limitations under the License.
  */
 
+function murmurhash3_32_gc(key, seed) {
+  var remainder = key.length & 3;
+  var bytes = key.length - remainder;
+  var c1 = 0xcc9e2d51;
+  var c2 = 0x1b873593;
+  var h1 = seed;
+  var k1;
+  var h1b;
+  var i = 0;
+  while (i < bytes) {
+      k1 =
+          ((key.charCodeAt(i) & 0xff)) |
+              ((key.charCodeAt(++i) & 0xff) << 8) |
+              ((key.charCodeAt(++i) & 0xff) << 16) |
+              ((key.charCodeAt(++i) & 0xff) << 24);
+      ++i;
+      k1 = ((((k1 & 0xffff) * c1) + ((((k1 >>> 16) * c1) & 0xffff) << 16))) & 0xffffffff;
+      k1 = (k1 << 15) | (k1 >>> 17);
+      k1 = ((((k1 & 0xffff) * c2) + ((((k1 >>> 16) * c2) & 0xffff) << 16))) & 0xffffffff;
+      h1 ^= k1;
+      h1 = (h1 << 13) | (h1 >>> 19);
+      h1b = ((((h1 & 0xffff) * 5) + ((((h1 >>> 16) * 5) & 0xffff) << 16))) & 0xffffffff;
+      h1 = (((h1b & 0xffff) + 0x6b64) + ((((h1b >>> 16) + 0xe654) & 0xffff) << 16));
+  }
+  k1 = 0;
+  switch (remainder) {
+      case 3: k1 ^= (key.charCodeAt(i + 2) & 0xff) << 16;
+      case 2: k1 ^= (key.charCodeAt(i + 1) & 0xff) << 8;
+      case 1:
+          k1 ^= (key.charCodeAt(i) & 0xff);
+          k1 = (((k1 & 0xffff) * c1) + ((((k1 >>> 16) * c1) & 0xffff) << 16)) & 0xffffffff;
+          k1 = (k1 << 15) | (k1 >>> 17);
+          k1 = (((k1 & 0xffff) * c2) + ((((k1 >>> 16) * c2) & 0xffff) << 16)) & 0xffffffff;
+          h1 ^= k1;
+  }
+  h1 ^= key.length;
+  h1 ^= h1 >>> 16;
+  h1 = (((h1 & 0xffff) * 0x85ebca6b) + ((((h1 >>> 16) * 0x85ebca6b) & 0xffff) << 16)) & 0xffffffff;
+  h1 ^= h1 >>> 13;
+  h1 = ((((h1 & 0xffff) * 0xc2b2ae35) + ((((h1 >>> 16) * 0xc2b2ae35) & 0xffff) << 16))) & 0xffffffff;
+  h1 ^= h1 >>> 16;
+  return h1 >>> 0;
+}
+
+var TOTAL_BUCKETS = 10000;
+function getBucket(saltedId) {
+  var hash = murmurhash3_32_gc(saltedId, 0);
+  var hashFixedBucket = Math.abs(hash) % TOTAL_BUCKETS;
+  var bucket = hashFixedBucket / TOTAL_BUCKETS;
+  return bucket;
+}
+function pickWithWeightsBucket(allocationPercentages, treatments, bucket) {
+  var sum = allocationPercentages.reduce(function (partialSum, a) { return partialSum + a; }, 0);
+  var partialSum = 0.0;
+  for (var i = 0; i < treatments.length; i++) {
+      partialSum += Number(allocationPercentages[i].toFixed(2)) / sum;
+      if (bucket > partialSum) {
+          continue;
+      }
+      return treatments[i];
+  }
+}
+function assignTreatmentByVisitor(experimentid, identityId, allocationPercentages, treatments) {
+  var saltedId = experimentid + '.' + identityId;
+  var bucketId = getBucket(saltedId);
+  var treatmentId = pickWithWeightsBucket(allocationPercentages, treatments, bucketId);
+  return {
+      treatmentId: treatmentId,
+      bucketId: bucketId
+  };
+}
+
+var LOCAL_STORAGE_KEY = 'unified-decisioning-experiments';
+function assignTreatment(allocationPercentages, treatments) {
+  var random = Math.random() * 100;
+  var i = treatments.length;
+  while (random > 0 && i > 0) {
+      i -= 1;
+      random -= +allocationPercentages[i];
+  }
+  return treatments[i];
+}
+function getLastExperimentTreatment(experimentId) {
+  var experimentsStr = localStorage.getItem(LOCAL_STORAGE_KEY);
+  if (experimentsStr) {
+      var experiments = JSON.parse(experimentsStr);
+      if (experiments[experimentId]) {
+          return experiments[experimentId].treatment;
+      }
+  }
+  return null;
+}
+function setLastExperimentTreatment(experimentId, treatment) {
+  var experimentsStr = localStorage.getItem(LOCAL_STORAGE_KEY);
+  var experiments = experimentsStr ? JSON.parse(experimentsStr) : {};
+  var now = new Date();
+  var expKeys = Object.keys(experiments);
+  expKeys.forEach(function (key) {
+      var date = new Date(experiments[key].date);
+      if ((now.getTime() - date.getTime()) > (1000 * 86400 * 30)) {
+          delete experiments[key];
+      }
+  });
+  var date = now.toISOString().split('T')[0];
+  experiments[experimentId] = { treatment: treatment, date: date };
+  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(experiments));
+}
+function assignTreatmentByDevice(experimentId, allocationPercentages, treatments) {
+  var cachedTreatmentId = getLastExperimentTreatment(experimentId);
+  var treatmentIdResponse;
+  if (!cachedTreatmentId) {
+      var assignedTreatmentId = assignTreatment(allocationPercentages, treatments);
+      setLastExperimentTreatment(experimentId, assignedTreatmentId);
+      treatmentIdResponse = assignedTreatmentId;
+  }
+  else {
+      treatmentIdResponse = cachedTreatmentId;
+  }
+  return {
+      treatmentId: treatmentIdResponse
+  };
+}
+
+var RandomizationUnit = {
+  VISITOR: 'VISITOR',
+  DEVICE: 'DEVICE'
+};
+function evaluateExperiment(context, experiment) {
+  var experimentId = experiment.id, identityNamespace = experiment.identityNamespace, _a = experiment.randomizationUnit, randomizationUnit = _a === void 0 ? RandomizationUnit.VISITOR : _a;
+  var identityMap = context.identityMap;
+  var treatments = experiment.treatments.map(function (item) { return item.id; });
+  var allocationPercentages = experiment.treatments.map(function (item) { return item.allocationPercentage; });
+  var treatmentAssignment = null;
+  switch (randomizationUnit) {
+      case RandomizationUnit.VISITOR: {
+          var identityId = identityMap[identityNamespace][0].id;
+          treatmentAssignment = assignTreatmentByVisitor(experimentId, identityId, allocationPercentages, treatments);
+          break;
+      }
+      case RandomizationUnit.DEVICE: {
+          treatmentAssignment = assignTreatmentByDevice(experimentId, allocationPercentages, treatments);
+          break;
+      }
+      default:
+          throw new Error("Unknow randomization unit");
+  }
+  var evaluationResponse = {
+      experimentId: experimentId,
+      hashedBucket: treatmentAssignment.bucketId,
+      treatment: {
+          id: treatmentAssignment.treatmentId
+      }
+  };
+  return evaluationResponse;
+}
+
+function traverseDecisionTree(decisionNodesMap, context, currentNodeId) {
+  var _a = decisionNodesMap[currentNodeId], experiment = _a.experiment, type = _a.type;
+  if (type === 'EXPERIMENTATION') {
+      var treatment = evaluateExperiment(context, experiment).treatment;
+      return [treatment];
+  }
+}
+function evaluateDecisionPolicy(decisionPolicy, context) {
+  var decisionNodesMap = {};
+  decisionPolicy.decisionNodes.forEach(function (item) {
+      decisionNodesMap[item['id']] = item;
+  });
+  var items = traverseDecisionTree(decisionNodesMap, context, decisionPolicy.rootDecisionNodeId);
+  return {
+      items: items
+  };
+}
+
+/**
+ * Retrieves the content of metadata tags.
+ * @param {string} name The metadata name (or property)
+ * @returns {string} The metadata value(s)
+ */
+export function getMetadata(name) {
+  const attr = name && name.includes(':') ? 'property' : 'name';
+  const meta = [...document.head.querySelectorAll(`meta[${attr}="${name}"]`)].map((m) => m.content).join(', ');
+  return meta || '';
+}
+
+/**
+ * Sanitizes a name for use as class name.
+ * @param {string} name The unsanitized name
+ * @returns {string} The class name
+ */
+export function toClassName(name) {
+  return typeof name === 'string'
+    ? name.toLowerCase().replace(/[^0-9a-z]/gi, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
+    : '';
+}
+
+/*
+ * Sanitizes a name for use as a js property name.
+ * @param {string} name The unsanitized name
+ * @returns {string} The camelCased name
+ */
+export function toCamelCase(name) {
+  return toClassName(name).replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+}
+
+/**
+ * Extracts the config from a block.
+ * @param {Element} block The block element
+ * @returns {object} The block config
+ */
+export function readBlockConfig(block) {
+  const config = {};
+  block.querySelectorAll(':scope>div').forEach((row) => {
+    if (row.children) {
+      const cols = [...row.children];
+      if (cols[1]) {
+        const col = cols[1];
+        const name = toClassName(cols[0].textContent);
+        let value = '';
+        if (col.querySelector('a')) {
+          const as = [...col.querySelectorAll('a')];
+          if (as.length === 1) {
+            value = as[0].href;
+          } else {
+            value = as.map((a) => a.href);
+          }
+        } else if (col.querySelector('img')) {
+          const imgs = [...col.querySelectorAll('img')];
+          if (imgs.length === 1) {
+            value = imgs[0].src;
+          } else {
+            value = imgs.map((img) => img.src);
+          }
+        } else if (col.querySelector('p')) {
+          const ps = [...col.querySelectorAll('p')];
+          if (ps.length === 1) {
+            value = ps[0].textContent;
+          } else {
+            value = ps.map((p) => p.textContent);
+          }
+        } else value = row.children[1].textContent;
+        config[name] = value;
+      }
+    }
+  });
+  return config;
+}
+
 export const RumPlugin = () => {
   /**
    * log RUM if part of the sample.
@@ -107,6 +355,502 @@ export const RumPlugin = () => {
   };
 };
 
+export const DecoratorPlugin = () => {
+  /**
+   * Replace icons with inline SVG and prefix with codeBasePath.
+   * @param {Element} element
+   */
+  function decorateIcons(element = document) {
+    element.querySelectorAll('span.icon').forEach(async (span) => {
+      if (span.classList.length < 2 || !span.classList[1].startsWith('icon-')) {
+        return;
+      }
+      const icon = span.classList[1].substring(5);
+      // eslint-disable-next-line no-use-before-define
+      const resp = await fetch(`${window.hlx.codeBasePath}/icons/${icon}.svg`);
+      if (resp.ok) {
+        const iconHTML = await resp.text();
+        if (iconHTML.match(/<style/i)) {
+          const img = document.createElement('img');
+          img.src = `data:image/svg+xml,${encodeURIComponent(iconHTML)}`;
+          span.appendChild(img);
+        } else {
+          span.innerHTML = iconHTML;
+        }
+      }
+    });
+  }
+
+  /**
+   * Decorates a block.
+   * @param {Element} block The block element
+   */
+  function decorateBlock(block) {
+    const shortBlockName = block.classList[0];
+    if (shortBlockName) {
+      block.classList.add('block');
+      block.setAttribute('data-block-name', shortBlockName);
+      block.setAttribute('data-block-status', 'initialized');
+      const blockWrapper = block.parentElement;
+      blockWrapper.classList.add(`${shortBlockName}-wrapper`);
+      const section = block.closest('.section');
+      if (section) section.classList.add(`${shortBlockName}-container`);
+    }
+  }
+
+  /**
+   * Decorates all sections in a container element.
+   * @param {Element} $main The container element
+   */
+  function decorateSections(main) {
+    main.querySelectorAll(':scope > div').forEach((section) => {
+      const wrappers = [];
+      let defaultContent = false;
+      [...section.children].forEach((e) => {
+        if (e.tagName === 'DIV' || !defaultContent) {
+          const wrapper = document.createElement('div');
+          wrappers.push(wrapper);
+          defaultContent = e.tagName !== 'DIV';
+          if (defaultContent) wrapper.classList.add('default-content-wrapper');
+        }
+        wrappers[wrappers.length - 1].append(e);
+      });
+      wrappers.forEach((wrapper) => section.append(wrapper));
+      section.classList.add('section');
+      section.setAttribute('data-section-status', 'initialized');
+
+      /* process section metadata */
+      const sectionMeta = section.querySelector('div.section-metadata');
+      if (sectionMeta) {
+        const meta = readBlockConfig(sectionMeta);
+        Object.keys(meta).forEach((key) => {
+          if (key === 'style') {
+            const styles = meta.style.split(',').map((style) => toClassName(style.trim()));
+            styles.forEach((style) => section.classList.add(style));
+          } else {
+            section.dataset[toCamelCase(key)] = meta[key];
+          }
+        });
+        sectionMeta.parentNode.remove();
+      }
+    });
+  }
+
+  /**
+   * Decorates all blocks in a container element.
+   * @param {Element} main The container element
+   */
+  function decorateBlocks(main) {
+    main
+      .querySelectorAll('div.section > div > div')
+      .forEach(decorateBlock);
+  }
+
+  /**
+   * Set template (page structure) and theme (page styles).
+   */
+  function decorateTemplateAndTheme() {
+    const addClasses = (elem, classes) => {
+      classes.split(',').forEach((v) => {
+        elem.classList.add(toClassName(v.trim()));
+      });
+    };
+    const template = getMetadata('template');
+    if (template) addClasses(document.body, template);
+    const theme = getMetadata('theme');
+    if (theme) addClasses(document.body, theme);
+  }
+
+  /**
+   * decorates paragraphs containing a single link as buttons.
+   * @param {Element} element container element
+   */
+  function decorateButtons(element) {
+    element.querySelectorAll('a').forEach((a) => {
+      a.title = a.title || a.textContent;
+      if (a.href !== a.textContent) {
+        const up = a.parentElement;
+        const twoup = a.parentElement.parentElement;
+        if (!a.querySelector('img')) {
+          if (up.childNodes.length === 1 && (up.tagName === 'P' || up.tagName === 'DIV')) {
+            a.className = 'button primary'; // default
+            up.classList.add('button-container');
+          }
+          if (up.childNodes.length === 1 && up.tagName === 'STRONG'
+            && twoup.childNodes.length === 1 && twoup.tagName === 'P') {
+            a.className = 'button primary';
+            twoup.classList.add('button-container');
+          }
+          if (up.childNodes.length === 1 && up.tagName === 'EM'
+            && twoup.childNodes.length === 1 && twoup.tagName === 'P') {
+            a.className = 'button secondary';
+            twoup.classList.add('button-container');
+          }
+        }
+      }
+    });
+  }
+
+  return {
+    name: 'decorator',
+
+    api: {
+      decorateBlock,
+      decorateButtons,
+      decorateIcons,
+    },
+
+    preEager: async () => {
+      decorateTemplateAndTheme();
+    },
+
+    postEager: async () => {
+      const main = document.querySelector('main');
+      decorateSections(main);
+      decorateBlocks(main);
+    },
+  };
+};
+
+export const ExperimentationPlugin = () => {
+  const DEFAULT_OPTIONS = {
+    basePath: '/experiments',
+    configFile: 'manifest.json',
+    metaTag: 'experiment',
+    queryParameter: 'experiment',
+    storeKey: 'hlx-experiments',
+  };
+
+  /**
+   * Parses the experimentation configuration sheet and creates an internal model.
+   *
+   * Output model is expected to have the following structure:
+   *      {
+   *        label: <string>,
+   *        blocks: [<string>]
+   *        audience: Desktop | Mobile,
+   *        status: Active | On | True | Yes,
+   *        variantNames: [<string>],
+   *        variants: {
+   *          [variantName]: {
+   *            label: <string>
+   *            percentageSplit: <number 0-1>,
+   *            content: <string>,
+   *            code: <string>,
+   *          }
+   *        }
+   *      };
+   */
+  function parseExperimentConfig(json) {
+    const config = {};
+    try {
+      json.settings.data.forEach((row) => {
+        const prop = toCamelCase(row.Name);
+        if (['audience', 'status'].includes(prop)) {
+          config[prop] = row.Value;
+        } else if (prop === 'experimentName') {
+          config.label = row.Value;
+        } else if (prop === 'blocks') {
+          config[prop] = row.Value.split(/[,\n]/);
+        }
+      });
+
+      config.variantNames = [];
+      config.variants = {};
+      json.variants.data.forEach((row) => {
+        const {
+          Name, Label, Split, Pages, Blocks,
+        } = row;
+        const variantName = toCamelCase(Name);
+        config.variantNames.push(variantName);
+        config.variants[variantName] = {
+          label: Label,
+          percentageSplit: Split,
+          content: Pages ? Pages.trim().split(',') : [],
+          code: Blocks ? Blocks.trim().split(',') : [],
+        };
+      });
+      return config;
+    } catch (e) {
+      console.log('error parsing experiment config:', e);
+    }
+    return null;
+  }
+
+  /**
+   * Gets the experiment name, if any for the page based on env, useragent, queyr params
+   * @returns {string} experimentid
+   */
+  function getExperiment(tagName) {
+    if (navigator.userAgent.match(/bot|crawl|spider/i)) {
+      return null;
+    }
+
+    return toClassName(getMetadata(tagName)) || null;
+  }
+
+  function validateConfig(config) {
+    if (!config.variantNames
+      || !config.variants
+      || !Object.values(config.variants).every((v) => (
+        typeof v === 'object'
+        && !!v.code
+        && !!v.content
+        && (v.percentageSplit === '' || !!v.percentageSplit)
+      ))) {
+      throw new Error('Invalid experiment config. Please review your sheet and parser.');
+    }
+  }
+
+  /**
+   * Gets experiment config from the manifest and transforms it to more easily
+   * consumable structure.
+   *
+   * the manifest consists of two sheets "settings" and "experiences", by default
+   *
+   * "settings" is applicable to the entire test and contains information
+   * like "Audience", "Status" or "Blocks".
+   *
+   * "experience" hosts the experiences in rows, consisting of:
+   * a "Percentage Split", "Label" and a set of "Links".
+   *
+   *
+   * @param {string} experimentId
+   * @param {object} cfg
+   * @returns {object} containing the experiment manifest
+   */
+  async function getExperimentConfig(experimentId, cfg) {
+    const path = `${cfg.basePath}/${experimentId}/${cfg.configFile}`;
+    try {
+      const resp = await fetch(path);
+      if (!resp.ok) {
+        console.log('error loading experiment config:', resp);
+        return null;
+      }
+      const json = await resp.json();
+      const config = cfg.parser ? cfg.parser(json) : parseExperimentConfig(json);
+      validateConfig(config);
+      config.id = experimentId;
+      config.manifest = path;
+      config.basePath = `${cfg.basePath}/${experimentId}`;
+      return config;
+    } catch (e) {
+      console.log(`error loading experiment manifest: ${path}`, e);
+    }
+    return null;
+  }
+
+  function getDecisionPolicy(config) {
+    const decisionPolicy = {
+      id: 'content-experimentation-policy',
+      rootDecisionNodeId: 'n1',
+      decisionNodes: [{
+        id: 'n1',
+        type: 'EXPERIMENTATION',
+        experiment: {
+          id: config.id,
+          identityNamespace: 'ECID',
+          randomizationUnit: 'DEVICE',
+          treatments: Object.entries(config.variants).map(([key, props]) => ({
+            id: key,
+            allocationPercentage: props.percentageSplit
+              ? parseFloat(props.percentageSplit) * 100
+              : 100 - Object.values(config.variants).reduce((result, variant) => {
+                result -= parseFloat(variant.percentageSplit || 0) * 100;
+                return result;
+              }, 100),
+          })),
+        },
+      }],
+    };
+    return decisionPolicy;
+  }
+
+  /**
+   * this is an extensible stub to take on audience mappings
+   * @param {string} audience
+   * @return {boolean} is member of this audience
+   */
+  function isValidAudience(audience) {
+    if (audience === 'mobile') {
+      return window.innerWidth < 600;
+    }
+    if (audience === 'desktop') {
+      return window.innerWidth >= 600;
+    }
+    return true;
+  }
+
+  /**
+   * Replaces element with content from path
+   * @param {string} path
+   * @param {HTMLElement} element
+   * @param {boolean} isBlock
+   */
+  async function replaceInner(path, element, isBlock = false) {
+    const plainPath = `${path}.plain.html`;
+    try {
+      const resp = await fetch(plainPath);
+      if (!resp.ok) {
+        console.log('error loading experiment content:', resp);
+        return null;
+      }
+      const html = await resp.text();
+      if (isBlock) {
+        const div = document.createElement('div');
+        div.innerHTML = html;
+        element.replaceWith(div.children[0].children[0]);
+      } else {
+        element.innerHTML = html;
+      }
+    } catch (e) {
+      console.log(`error loading experiment content: ${plainPath}`, e);
+    }
+    return null;
+  }
+
+  async function runExperiment(config, plugins) {
+    const experiment = getExperiment(config.metaTag);
+    if (!experiment) {
+      return;
+    }
+
+    const usp = new URLSearchParams(window.location.search);
+    const [forcedExperiment, forcedVariant] = usp.has(config.queryParameter) ? usp.get(config.queryParameter).split('/') : [];
+
+    const experimentConfig = await getExperimentConfig(experiment, config);
+    console.debug(experimentConfig);
+    if (!experimentConfig || (toCamelCase(experimentConfig.status) !== 'active' && !forcedExperiment)) {
+      return;
+    }
+
+    experimentConfig.run = forcedExperiment
+      || isValidAudience(toClassName(experimentConfig.audience));
+    window.hlx = window.hlx || {};
+    window.hlx.experiment = experimentConfig;
+    console.debug('run', experimentConfig.run, experimentConfig.audience);
+    if (!experimentConfig.run) {
+      return;
+    }
+
+    if (forcedVariant && experimentConfig.variantNames.includes(forcedVariant)) {
+      experimentConfig.selectedVariant = forcedVariant;
+    } else {
+      const decision = evaluateDecisionPolicy(getDecisionPolicy(experimentConfig), {});
+      experimentConfig.selectedVariant = decision.items[0].id;
+    }
+
+    if (plugins.rum) {
+      plugins.rum.sampleRUM('experiment', { source: experimentConfig.id, target: experimentConfig.selectedVariant });
+    }
+    console.debug(`running experiment (${window.hlx.experiment.id}) -> ${window.hlx.experiment.selectedVariant}`);
+
+    if (experimentConfig.selectedVariant === experimentConfig.variantNames[0]) {
+      return;
+    }
+
+    const currentPath = window.location.pathname;
+    const { content } = experimentConfig.variants[experimentConfig.selectedVariant];
+    if (!content.length) {
+      return;
+    }
+
+    const control = experimentConfig.variants[experimentConfig.variantNames[0]];
+    const index = control.content.indexOf(currentPath);
+    if (index < 0 || content[index] === currentPath) {
+      return;
+    }
+
+    // Fullpage content experiment
+    await replaceInner(content[0], document.querySelector('main'));
+  }
+
+  return {
+    name: 'experimentation',
+
+    patchBlockConfig: (config) => {
+      const { experiment } = window.hlx;
+
+      // No experiment is running
+      if (!experiment || !experiment.run) {
+        return config;
+      }
+
+      // The current experiment does not modify the block
+      if (experiment.selectedVariant === experiment.variantNames[0]
+        || !experiment.blocks || !experiment.blocks.includes(config.blockName)) {
+        return config;
+      }
+
+      // The current experiment does not modify the block code
+      const variant = experiment.variants[experiment.selectedVariant];
+      if (!variant.code.length) {
+        return config;
+      }
+
+      let index = experiment.variants[experiment.variantNames[0]].code.indexOf('');
+      if (index < 0) {
+        index = experiment.variants[experiment.variantNames[0]].code.indexOf(config.blockName);
+      }
+      if (index < 0) {
+        index = experiment.variants[experiment.variantNames[0]].code.indexOf(`/blocks/${config.blockName}`);
+      }
+      if (index < 0) {
+        return config;
+      }
+
+      let origin = '';
+      let path;
+      if (/^https?:\/\//.test(variant.code[index])) {
+        const url = new URL(variant.code[index]);
+        // Experimenting from a different branch
+        if (url.origin !== window.location.origin) {
+          origin = url.origin;
+        }
+        // Experimenting from a block path
+        if (url.pathname !== '/') {
+          path = url.pathname;
+        } else {
+          path = `/blocks/${config.blockName}`;
+        }
+      } else { // Experimenting from a different branch on the same branch
+        path = variant.code[index];
+      }
+      if (!origin && !path) {
+        return config;
+      }
+
+      const { codeBasePath } = window.hlx;
+      return {
+        ...config,
+        cssPath: `${origin}${codeBasePath}${path}/${config.blockName}.css`,
+        jsPath: `${origin}${codeBasePath}${path}/${config.blockName}.js`,
+      };
+    },
+
+    preEager: async (customOptions, plugins) => {
+      const options = {
+        ...DEFAULT_OPTIONS,
+        ...customOptions,
+      };
+      await runExperiment(options, plugins);
+
+      !function(n,o){o.forEach(function(o){n[o]||((n.__alloyNS=n.__alloyNS||
+      []).push(o),n[o]=function(){var u=arguments;return new Promise(
+      function(i,l){n[o].q.push([i,l,u])})},n[o].q=[])})}
+      (window,["alloy"]);
+    },
+
+    preLazy: async () => {
+      import('./plugins/experimentation-ued/alloy.min.js');
+      if (window.location.hostname.endsWith('hlx.page') || window.location.hostname === ('localhost')) {
+        // eslint-disable-next-line import/no-cycle
+        import('./plugins/experimentation-ued/preview.js');
+      }
+    },
+  };
+}
+
 /**
  * Loads a CSS file.
  * @param {string} href The path to the CSS file
@@ -124,37 +868,6 @@ export function loadCSS(href, callback) {
   } else if (typeof callback === 'function') {
     callback('noop');
   }
-}
-
-/**
- * Retrieves the content of metadata tags.
- * @param {string} name The metadata name (or property)
- * @returns {string} The metadata value(s)
- */
-export function getMetadata(name) {
-  const attr = name && name.includes(':') ? 'property' : 'name';
-  const meta = [...document.head.querySelectorAll(`meta[${attr}="${name}"]`)].map((m) => m.content).join(', ');
-  return meta || '';
-}
-
-/**
- * Sanitizes a name for use as class name.
- * @param {string} name The unsanitized name
- * @returns {string} The class name
- */
-export function toClassName(name) {
-  return typeof name === 'string'
-    ? name.toLowerCase().replace(/[^0-9a-z]/gi, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
-    : '';
-}
-
-/*
- * Sanitizes a name for use as a js property name.
- * @param {string} name The unsanitized name
- * @returns {string} The camelCased name
- */
-export function toCamelCase(name) {
-  return toClassName(name).replace(/-([a-z])/g, (g) => g[1].toUpperCase());
 }
 
 const pluginReferences = {};
@@ -213,49 +926,6 @@ export function buildBlock(blockName, content) {
     blockEl.appendChild(rowEl);
   });
   return (blockEl);
-}
-
-/**
- * Extracts the config from a block.
- * @param {Element} block The block element
- * @returns {object} The block config
- */
-export function readBlockConfig(block) {
-  const config = {};
-  block.querySelectorAll(':scope>div').forEach((row) => {
-    if (row.children) {
-      const cols = [...row.children];
-      if (cols[1]) {
-        const col = cols[1];
-        const name = toClassName(cols[0].textContent);
-        let value = '';
-        if (col.querySelector('a')) {
-          const as = [...col.querySelectorAll('a')];
-          if (as.length === 1) {
-            value = as[0].href;
-          } else {
-            value = as.map((a) => a.href);
-          }
-        } else if (col.querySelector('img')) {
-          const imgs = [...col.querySelectorAll('img')];
-          if (imgs.length === 1) {
-            value = imgs[0].src;
-          } else {
-            value = imgs.map((img) => img.src);
-          }
-        } else if (col.querySelector('p')) {
-          const ps = [...col.querySelectorAll('p')];
-          if (ps.length === 1) {
-            value = ps[0].textContent;
-          } else {
-            value = ps.map((p) => p.textContent);
-          }
-        } else value = row.children[1].textContent;
-        config[name] = value;
-      }
-    }
-  });
-  return config;
 }
 
 /**
@@ -493,6 +1163,12 @@ export async function loadPage(options = {}) {
  */
 window.hlx = window.hlx || {};
 withPlugin(RumPlugin);
+const {
+  decorateBlock,
+  decorateButtons,
+  decorateIcons,
+} = await withPlugin(DecoratorPlugin);
+
 export async function init(options) {
   window.hlx.codeBasePath = '';
 
@@ -508,3 +1184,162 @@ export async function init(options) {
 
   return loadPage(options);
 }
+
+const LCP_BLOCKS = []; // add your LCP blocks to the list
+window.hlx.RUM_GENERATION = 'project-1'; // add your RUM generation information here
+
+await withPlugin(ExperimentationPlugin, {
+  basePath: '/franklin-experiments',
+  configFile: 'franklin-experiment.json',
+  parser: (json) => {
+    const config = {};
+    try {
+      const keyMap = {
+        'Experiment Name': 'label',
+      };
+      Object.values(json.settings.data).reduce((cfg, entry) => {
+        const key = keyMap[entry.Name] || toCamelCase(entry.Name);
+        cfg[key] = key === 'blocks' ? entry.Value.split(/[,\n]/) : entry.Value;
+        return cfg;
+      }, config);
+
+      config.variantNames = [];
+      config.variants = {};
+      json.variants.data.forEach((row) => {
+        const {
+          Name, Label, Split, Page, Block,
+        } = row;
+        const variantName = toCamelCase(Name);
+        config.variantNames.push(variantName);
+        config.variants[variantName] = {
+          label: Label,
+          percentageSplit: Split,
+          content: Page ? Page.trim().split(',') : [],
+          code: Block ? Block.trim().split(',') : [],
+        };
+      });
+      return config;
+    } catch (e) {
+      console.log('error parsing experiment config:', e);
+    }
+    return null;
+  },
+});
+
+function buildHeroBlock(main) {
+  const h1 = main.querySelector('h1');
+  const picture = main.querySelector('picture');
+  // eslint-disable-next-line no-bitwise
+  if (h1 && picture && (h1.compareDocumentPosition(picture) & Node.DOCUMENT_POSITION_PRECEDING)) {
+    const section = document.createElement('div');
+    section.append(buildBlock('hero', { elems: [picture, h1] }));
+    main.prepend(section);
+  }
+}
+
+/**
+ * Builds all synthetic blocks in a container element.
+ * @param {Element} main The container element
+ */
+function buildAutoBlocks(main) {
+  try {
+    buildHeroBlock(main);
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Auto Blocking failed', error);
+  }
+}
+
+/**
+ * Decorates the main element.
+ * @param {Element} main The main element
+ */
+export function decorateMain(main) {
+  // hopefully forward compatible button decoration
+  decorateButtons(main);
+  decorateIcons(main);
+  buildAutoBlocks(main);
+}
+
+/**
+ * loads everything needed to get to LCP.
+ */
+async function loadEager(doc) {
+  document.documentElement.lang = 'en';
+  const main = doc.querySelector('main');
+  if (main) {
+    decorateMain(main);
+  }
+}
+
+/**
+ * Adds the favicon.
+ * @param {string} href The favicon URL
+ */
+export function addFavIcon(href) {
+  const link = document.createElement('link');
+  link.rel = 'icon';
+  link.type = 'image/svg+xml';
+  link.href = href;
+  const existingLink = document.querySelector('head link[rel="icon"]');
+  if (existingLink) {
+    existingLink.parentElement.replaceChild(link, existingLink);
+  } else {
+    document.getElementsByTagName('head')[0].appendChild(link);
+  }
+}
+
+/**
+ * loads a block named 'header' into header
+ */
+
+export function loadHeader(header) {
+  const headerBlock = buildBlock('header', '');
+  header.append(headerBlock);
+  decorateBlock(headerBlock);
+  return loadBlock(headerBlock);
+}
+
+/**
+ * loads a block named 'footer' into footer
+ */
+
+export function loadFooter(footer) {
+  const footerBlock = buildBlock('footer', '');
+  footer.append(footerBlock);
+  decorateBlock(footerBlock);
+  return loadBlock(footerBlock);
+}
+
+/**
+ * loads everything that doesn't need to be delayed.
+ */
+async function loadLazy(doc) {
+  const main = doc.querySelector('main');
+
+  const { hash } = window.location;
+  const element = hash ? main.querySelector(hash) : false;
+  if (hash && element) element.scrollIntoView();
+
+  loadHeader(doc.querySelector('header'));
+  loadFooter(doc.querySelector('footer'));
+
+  loadCSS(`${window.hlx.codeBasePath}/styles/lazy-styles.css`);
+  addFavIcon(`${window.hlx.codeBasePath}/styles/favicon.svg`);
+}
+
+/**
+ * loads everything that happens a lot later, without impacting
+ * the user experience.
+ */
+function loadDelayed() {
+  // load anything that can be postponed to the latest here
+  import('./delayed.js');
+}
+
+init({
+  loadEager,
+  loadLazy,
+  loadDelayed,
+  lcpblocks: LCP_BLOCKS,
+});
