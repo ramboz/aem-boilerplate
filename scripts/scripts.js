@@ -11,49 +11,47 @@ import {
 const LCP_BLOCKS = []; // add your LCP blocks to the list
 window.hlx.RUM_GENERATION = 'project-1'; // add your RUM generation information here
 
-const {
-  decorateBlock,
-  decorateButtons,
-  decorateIcons,
-} = await withPlugin('./plugins/decorator.js');
-await withPlugin('./plugins/experimentation-ued/index.js', {
-  condition: () => !!getMetadata('experiment'),
-  basePath: '/franklin-experiments',
-  configFile: 'franklin-experiment.json',
-  parser: (json) => {
-    const config = {};
-    try {
-      const keyMap = {
-        'Experiment Name': 'label',
-      };
-      Object.values(json.settings.data).reduce((cfg, entry) => {
-        const key = keyMap[entry.Name] || toCamelCase(entry.Name);
-        cfg[key] = key === 'blocks' ? entry.Value.split(/[,\n]/) : entry.Value;
-        return cfg;
-      }, config);
-
-      config.variantNames = [];
-      config.variants = {};
-      json.variants.data.forEach((row) => {
-        const {
-          Name, Label, Split, Page, Block,
-        } = row;
-        const variantName = toCamelCase(Name);
-        config.variantNames.push(variantName);
-        config.variants[variantName] = {
-          label: Label,
-          percentageSplit: Split,
-          content: Page ? Page.trim().split(',') : [],
-          code: Block ? Block.trim().split(',') : [],
+const [decorator] = await Promise.all([
+  withPlugin('./plugins/decorator.js'),
+  withPlugin('./plugins/experimentation-ued/index.js', {
+    condition: () => !!getMetadata('experiment'),
+    basePath: '/franklin-experiments',
+    configFile: 'franklin-experiment.json',
+    parser: (json) => {
+      const config = {};
+      try {
+        const keyMap = {
+          'Experiment Name': 'label',
         };
-      });
-      return config;
-    } catch (e) {
-      console.log('error parsing experiment config:', e);
-    }
-    return null;
-  },
-});
+        Object.values(json.settings.data).reduce((cfg, entry) => {
+          const key = keyMap[entry.Name] || toCamelCase(entry.Name);
+          cfg[key] = key === 'blocks' ? entry.Value.split(/[,\n]/) : entry.Value;
+          return cfg;
+        }, config);
+  
+        config.variantNames = [];
+        config.variants = {};
+        json.variants.data.forEach((row) => {
+          const {
+            Name, Label, Split, Page, Block,
+          } = row;
+          const variantName = toCamelCase(Name);
+          config.variantNames.push(variantName);
+          config.variants[variantName] = {
+            label: Label,
+            percentageSplit: Split,
+            content: Page ? Page.trim().split(',') : [],
+            code: Block ? Block.trim().split(',') : [],
+          };
+        });
+        return config;
+      } catch (e) {
+        console.log('error parsing experiment config:', e);
+      }
+      return null;
+    },
+  }),
+]);
 
 function buildHeroBlock(main) {
   const h1 = main.querySelector('h1');
