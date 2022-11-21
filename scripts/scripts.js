@@ -52,6 +52,11 @@ const [decorator] = await Promise.all([
     },
   }),
 ]);
+const {
+  decorateBlock,
+  decorateButtons,
+  decorateIcons,
+} = decorator;
 
 function buildHeroBlock(main) {
   const h1 = main.querySelector('h1');
