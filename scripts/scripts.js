@@ -80,8 +80,8 @@ function buildAutoBlocks(main) {
  */
 export function decorateMain(main) {
   // hopefully forward compatible button decoration
-  plugins.decrator.decorateButtons(main);
-  plugins.decrator.decorateIcons(main);
+  plugins.decorator.decorateButtons(main);
+  plugins.decorator.decorateIcons(main);
   buildAutoBlocks(main);
 }
 
