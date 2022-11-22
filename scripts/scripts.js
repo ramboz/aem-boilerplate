@@ -2,8 +2,8 @@ import {
   buildBlock,
   getMetadata,
   init,
-  loadBlock,
   loadCSS,
+  plugins,
   toCamelCase,
   withPlugin,
 } from './lib-franklin.js';
@@ -11,11 +11,6 @@ import {
 const LCP_BLOCKS = []; // add your LCP blocks to the list
 window.hlx.RUM_GENERATION = 'project-1'; // add your RUM generation information here
 
-const {
-  decorateBlock,
-  decorateButtons,
-  decorateIcons,
-} = await withPlugin('./plugins/decorator.js');
 await withPlugin('./plugins/experimentation-ued/index.js', {
   condition: () => !!getMetadata('experiment'),
   basePath: '/franklin-experiments',
@@ -85,8 +80,8 @@ function buildAutoBlocks(main) {
  */
 export function decorateMain(main) {
   // hopefully forward compatible button decoration
-  decorateButtons(main);
-  decorateIcons(main);
+  plugins.decrator.decorateButtons(main);
+  plugins.decrator.decorateIcons(main);
   buildAutoBlocks(main);
 }
 
@@ -119,28 +114,6 @@ export function addFavIcon(href) {
 }
 
 /**
- * loads a block named 'header' into header
- */
-
-export function loadHeader(header) {
-  const headerBlock = buildBlock('header', '');
-  header.append(headerBlock);
-  decorateBlock(headerBlock);
-  return loadBlock(headerBlock);
-}
-
-/**
- * loads a block named 'footer' into footer
- */
-
-export function loadFooter(footer) {
-  const footerBlock = buildBlock('footer', '');
-  footer.append(footerBlock);
-  decorateBlock(footerBlock);
-  return loadBlock(footerBlock);
-}
-
-/**
  * loads everything that doesn't need to be delayed.
  */
 async function loadLazy(doc) {
@@ -149,9 +122,6 @@ async function loadLazy(doc) {
   const { hash } = window.location;
   const element = hash ? main.querySelector(hash) : false;
   if (hash && element) element.scrollIntoView();
-
-  loadHeader(doc.querySelector('header'));
-  loadFooter(doc.querySelector('footer'));
 
   loadCSS(`${window.hlx.codeBasePath}/styles/lazy-styles.css`);
   addFavIcon(`${window.hlx.codeBasePath}/styles/favicon.svg`);
