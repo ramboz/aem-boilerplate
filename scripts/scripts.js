@@ -11,6 +11,9 @@ import {
   waitForLCP,
   loadBlocks,
   loadCSS,
+  getMetadata,
+  runExperiment,
+  toCamelCase,
 } from './lib-franklin.js';
 
 const LCP_BLOCKS = []; // add your LCP blocks to the list
@@ -116,7 +119,54 @@ function loadDelayed() {
 }
 
 async function loadPage() {
+  if (getMetadata('experiment') || getMetadata('instant-experiment')) {
+    await runExperiment({
+      basePath: '/franklin-experiments',
+      configFile: 'franklin-experiment.json',
+      metaTag: 'experiment',
+      queryParameter: 'experiment',
+      storeKey: 'hlx-experiments',
+      parser: (json) => {
+        const config = {};
+        try {
+          const keyMap = {
+            'Experiment Name': 'label',
+          };
+          Object.values(json.settings.data).reduce((cfg, entry) => {
+            const key = keyMap[entry.Name] || toCamelCase(entry.Name);
+            cfg[key] = key === 'blocks' ? entry.Value.split(/[,\n]/) : entry.Value;
+            return cfg;
+          }, config);
+  
+          config.variantNames = [];
+          config.variants = {};
+          json.variants.data.forEach((row) => {
+            const {
+              Name, Label, Split, Page, Block,
+            } = row;
+            const variantName = toCamelCase(Name);
+            config.variantNames.push(variantName);
+            config.variants[variantName] = {
+              label: Label,
+              percentageSplit: Split,
+              content: Page ? Page.trim().split(',') : [],
+              code: Block ? Block.trim().split(',') : [],
+            };
+          });
+          return config;
+        } catch (e) {
+          console.log('error parsing experiment config:', e);
+        }
+        return null;
+      },
+    });
+  }
   await loadEager(document);
+
+  if (window.location.hostname.endsWith('hlx.page') || window.location.hostname === ('localhost')) {
+    // eslint-disable-next-line import/no-cycle
+    import('./plugins/experimentation-ued/preview.js');
+  }
   await loadLazy(document);
   loadDelayed();
 }
