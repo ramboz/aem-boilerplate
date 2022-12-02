@@ -28,12 +28,12 @@ await withPlugin('./plugins/experimentation-ued/index.js', {
     geo: async (value) => {
       const usp = new URLSearchParams(window.location.search);
       const service = usp.get('geo-service');
-      if (service === 'cf' || service === 'clouflare') {
+      if (service === 'cf' || service === 'cloudflare') {
         const response = await fetch('https://geo-service.adobe-franklin.workers.dev/');
         const json = await response.json();
         return json.country_code.toLowerCase() === value.toLowerCase();
       }
-      if (service === 'f' || service === 'falsty') {
+      if (service === 'f' || service === 'fastly') {
         const response = await fetch('https://franklin-geo-service.edgecompute.app/');
         const json = await response.json();
         return json.country_code.toLowerCase() === value.toLowerCase();
