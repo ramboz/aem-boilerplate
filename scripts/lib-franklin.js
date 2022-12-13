@@ -10,6 +10,99 @@
  * governing permissions and limitations under the License.
  */
 
+/**
+ * Retrieves the content of metadata tags.
+ * @param {string} name The metadata name (or property)
+ * @returns {string} The metadata value(s)
+ */
+export function getMetadata(name) {
+  const attr = name && name.includes(':') ? 'property' : 'name';
+  const meta = [...document.head.querySelectorAll(`meta[${attr}="${name}"]`)].map((m) => m.content).join(', ');
+  return meta || '';
+}
+
+/**
+ * Sanitizes a name for use as class name.
+ * @param {string} name The unsanitized name
+ * @returns {string} The class name
+ */
+export function toClassName(name) {
+  return typeof name === 'string'
+    ? name.toLowerCase().replace(/[^0-9a-z]/gi, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
+    : '';
+}
+
+/*
+ * Sanitizes a name for use as a js property name.
+ * @param {string} name The unsanitized name
+ * @returns {string} The camelCased name
+ */
+export function toCamelCase(name) {
+  return toClassName(name).replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+}
+
+/**
+ * Loads a CSS file.
+ * @param {string} href The path to the CSS file
+ */
+export function loadCSS(href, callback) {
+  if (!document.querySelector(`head > link[href="${href}"]`)) {
+    const link = document.createElement('link');
+    link.setAttribute('rel', 'stylesheet');
+    link.setAttribute('href', href);
+    if (typeof callback === 'function') {
+      link.onload = (e) => callback(e.type);
+      link.onerror = (e) => callback(e.type);
+    }
+    document.head.appendChild(link);
+  } else if (typeof callback === 'function') {
+    callback('noop');
+  }
+}
+
+/**
+ * Extracts the config from a block.
+ * @param {Element} block The block element
+ * @returns {object} The block config
+ */
+export function readBlockConfig(block) {
+  const config = {};
+  block.querySelectorAll(':scope>div').forEach((row) => {
+    if (row.children) {
+      const cols = [...row.children];
+      if (cols[1]) {
+        const col = cols[1];
+        const name = toClassName(cols[0].textContent);
+        let value = '';
+        if (col.querySelector('a')) {
+          const as = [...col.querySelectorAll('a')];
+          if (as.length === 1) {
+            value = as[0].href;
+          } else {
+            value = as.map((a) => a.href);
+          }
+        } else if (col.querySelector('img')) {
+          const imgs = [...col.querySelectorAll('img')];
+          if (imgs.length === 1) {
+            value = imgs[0].src;
+          } else {
+            value = imgs.map((img) => img.src);
+          }
+        } else if (col.querySelector('p')) {
+          const ps = [...col.querySelectorAll('p')];
+          if (ps.length === 1) {
+            value = ps[0].textContent;
+          } else {
+            value = ps.map((p) => p.textContent);
+          }
+        } else value = row.children[1].textContent;
+        config[name] = value;
+      }
+    }
+  });
+  return config;
+}
+
 export const RumPlugin = () => {
   /**
    * log RUM if part of the sample.
@@ -107,55 +200,169 @@ export const RumPlugin = () => {
   };
 };
 
-/**
- * Loads a CSS file.
- * @param {string} href The path to the CSS file
- */
-export function loadCSS(href, callback) {
-  if (!document.querySelector(`head > link[href="${href}"]`)) {
-    const link = document.createElement('link');
-    link.setAttribute('rel', 'stylesheet');
-    link.setAttribute('href', href);
-    if (typeof callback === 'function') {
-      link.onload = (e) => callback(e.type);
-      link.onerror = (e) => callback(e.type);
-    }
-    document.head.appendChild(link);
-  } else if (typeof callback === 'function') {
-    callback('noop');
+export const DecoratorPlugin = () => {
+  /**
+   * Replace icons with inline SVG and prefix with codeBasePath.
+   * @param {Element} element
+   */
+  function decorateIcons(element = document) {
+    element.querySelectorAll('span.icon').forEach(async (span) => {
+      if (span.classList.length < 2 || !span.classList[1].startsWith('icon-')) {
+        return;
+      }
+      const icon = span.classList[1].substring(5);
+      // eslint-disable-next-line no-use-before-define
+      const resp = await fetch(`${window.hlx.codeBasePath}/icons/${icon}.svg`);
+      if (resp.ok) {
+        const iconHTML = await resp.text();
+        if (iconHTML.match(/<style/i)) {
+          const img = document.createElement('img');
+          img.src = `data:image/svg+xml,${encodeURIComponent(iconHTML)}`;
+          span.appendChild(img);
+        } else {
+          span.innerHTML = iconHTML;
+        }
+      }
+    });
   }
-}
 
-/**
- * Retrieves the content of metadata tags.
- * @param {string} name The metadata name (or property)
- * @returns {string} The metadata value(s)
- */
-export function getMetadata(name) {
-  const attr = name && name.includes(':') ? 'property' : 'name';
-  const meta = [...document.head.querySelectorAll(`meta[${attr}="${name}"]`)].map((m) => m.content).join(', ');
-  return meta || '';
-}
+  /**
+   * Decorates a block.
+   * @param {Element} block The block element
+   */
+  function decorateBlock(block) {
+    const shortBlockName = block.classList[0];
+    if (shortBlockName) {
+      block.classList.add('block');
+      block.setAttribute('data-block-name', shortBlockName);
+      block.setAttribute('data-block-status', 'initialized');
+      const blockWrapper = block.parentElement;
+      blockWrapper.classList.add(`${shortBlockName}-wrapper`);
+      const section = block.closest('.section');
+      if (section) section.classList.add(`${shortBlockName}-container`);
+    }
+  }
 
-/**
- * Sanitizes a name for use as class name.
- * @param {string} name The unsanitized name
- * @returns {string} The class name
- */
-export function toClassName(name) {
-  return typeof name === 'string'
-    ? name.toLowerCase().replace(/[^0-9a-z]/gi, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
-    : '';
-}
+  /**
+   * Decorates all sections in a container element.
+   * @param {Element} $main The container element
+   */
+  function decorateSections(main) {
+    main.querySelectorAll(':scope > div').forEach((section) => {
+      const wrappers = [];
+      let defaultContent = false;
+      [...section.children].forEach((e) => {
+        if (e.tagName === 'DIV' || !defaultContent) {
+          const wrapper = document.createElement('div');
+          wrappers.push(wrapper);
+          defaultContent = e.tagName !== 'DIV';
+          if (defaultContent) wrapper.classList.add('default-content-wrapper');
+        }
+        wrappers[wrappers.length - 1].append(e);
+      });
+      wrappers.forEach((wrapper) => section.append(wrapper));
+      section.classList.add('section');
+      section.setAttribute('data-section-status', 'initialized');
 
-/*
- * Sanitizes a name for use as a js property name.
- * @param {string} name The unsanitized name
- * @returns {string} The camelCased name
- */
-export function toCamelCase(name) {
-  return toClassName(name).replace(/-([a-z])/g, (g) => g[1].toUpperCase());
-}
+      /* process section metadata */
+      const sectionMeta = section.querySelector('div.section-metadata');
+      if (sectionMeta) {
+        const meta = readBlockConfig(sectionMeta);
+        Object.keys(meta).forEach((key) => {
+          if (key === 'style') {
+            const styles = meta.style.split(',').map((style) => toClassName(style.trim()));
+            styles.forEach((style) => section.classList.add(style));
+          } else {
+            section.dataset[toCamelCase(key)] = meta[key];
+          }
+        });
+        sectionMeta.parentNode.remove();
+      }
+    });
+  }
+
+  /**
+   * Decorates all blocks in a container element.
+   * @param {Element} main The container element
+   */
+  function decorateBlocks(main) {
+    main
+      .querySelectorAll('div.section > div > div')
+      .forEach(decorateBlock);
+  }
+
+  /**
+   * Set template (page structure) and theme (page styles).
+   */
+  function decorateTemplateAndTheme(loadCssThemes = false) {
+    const addClasses = (elem, classes) => {
+      classes.split(',').forEach((v) => {
+        elem.classList.add(toClassName(v.trim()));
+      });
+    };
+    const template = getMetadata('template');
+    if (template) addClasses(document.body, template);
+    const theme = getMetadata('theme');
+    if (theme) {
+      addClasses(document.body, theme);
+      if (loadCssThemes) {
+        theme.split(',').forEach((t) => {
+          loadCSS(`/styles/theme-${toClassName(t)}.css`);
+        });
+      }
+    }
+  }
+
+  /**
+   * decorates paragraphs containing a single link as buttons.
+   * @param {Element} element container element
+   */
+  function decorateButtons(element) {
+    element.querySelectorAll('a').forEach((a) => {
+      a.title = a.title || a.textContent;
+      if (a.href !== a.textContent) {
+        const up = a.parentElement;
+        const twoup = a.parentElement.parentElement;
+        if (!a.querySelector('img')) {
+          if (up.childNodes.length === 1 && (up.tagName === 'P' || up.tagName === 'DIV')) {
+            a.className = 'button primary'; // default
+            up.classList.add('button-container');
+          }
+          if (up.childNodes.length === 1 && up.tagName === 'STRONG'
+            && twoup.childNodes.length === 1 && twoup.tagName === 'P') {
+            a.className = 'button primary';
+            twoup.classList.add('button-container');
+          }
+          if (up.childNodes.length === 1 && up.tagName === 'EM'
+            && twoup.childNodes.length === 1 && twoup.tagName === 'P') {
+            a.className = 'button secondary';
+            twoup.classList.add('button-container');
+          }
+        }
+      }
+    });
+  }
+
+  return {
+    name: 'decorator',
+
+    api: {
+      decorateBlock,
+      decorateButtons,
+      decorateIcons,
+    },
+
+    preEager: (options) => {
+      decorateTemplateAndTheme(options.loadCssThemes);
+    },
+
+    postEager: () => {
+      const main = document.querySelector('main');
+      decorateSections(main);
+      decorateBlocks(main);
+    },
+  };
+};
 
 const plugins = {};
 const pluginsApis = {};
@@ -215,49 +422,6 @@ export function buildBlock(blockName, content) {
     blockEl.appendChild(rowEl);
   });
   return (blockEl);
-}
-
-/**
- * Extracts the config from a block.
- * @param {Element} block The block element
- * @returns {object} The block config
- */
-export function readBlockConfig(block) {
-  const config = {};
-  block.querySelectorAll(':scope>div').forEach((row) => {
-    if (row.children) {
-      const cols = [...row.children];
-      if (cols[1]) {
-        const col = cols[1];
-        const name = toClassName(cols[0].textContent);
-        let value = '';
-        if (col.querySelector('a')) {
-          const as = [...col.querySelectorAll('a')];
-          if (as.length === 1) {
-            value = as[0].href;
-          } else {
-            value = as.map((a) => a.href);
-          }
-        } else if (col.querySelector('img')) {
-          const imgs = [...col.querySelectorAll('img')];
-          if (imgs.length === 1) {
-            value = imgs[0].src;
-          } else {
-            value = imgs.map((img) => img.src);
-          }
-        } else if (col.querySelector('p')) {
-          const ps = [...col.querySelectorAll('p')];
-          if (ps.length === 1) {
-            value = ps[0].textContent;
-          } else {
-            value = ps.map((p) => p.textContent);
-          }
-        } else value = row.children[1].textContent;
-        config[name] = value;
-      }
-    }
-  });
-  return config;
 }
 
 /**
@@ -507,6 +671,7 @@ if (scriptEl) {
 }
 
 withPlugin(RumPlugin);
+withPlugin(DecoratorPlugin);
 export async function init(options) {
   return loadPage(options);
 }
