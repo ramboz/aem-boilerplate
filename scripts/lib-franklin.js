@@ -162,8 +162,15 @@ const pluginsApis = {};
 export async function withPlugin(pathOrFunction, options = {}) {
   let plugin;
   let pluginName;
+  let pluginBasePath = `${window.hlx.codeBasePath}/scripts/`;
+
   if (typeof pathOrFunction === 'string') {
-    pluginName = toCamelCase(pathOrFunction.split('/').pop().replace('.js', ''));
+    const pathTokens = pathOrFunction.split('/');
+    pluginName = toCamelCase(pathTokens.pop().replace('.js', ''));
+    pluginBasePath = new URL(pathTokens.join('/'), window.location.origin + pluginBasePath).pathname;
+    if (pluginName === 'index') {
+      pluginName = toCamelCase(pathTokens.pop());
+    }
     plugin = await import(pathOrFunction);
   } else if (typeof pathOrFunction === 'function') {
     plugin = pathOrFunction(options);
@@ -171,6 +178,7 @@ export async function withPlugin(pathOrFunction, options = {}) {
   } else {
     throw new Error('Invalid plugin reference', pathOrFunction);
   }
+  options.basePath = pluginBasePath;
   plugins[pluginName] = { ...plugin, options };
   if (plugin.api) {
     pluginsApis[pluginName] = plugin.api;
@@ -486,19 +494,19 @@ export async function loadPage(options = {}) {
  * init block utils
  */
 window.hlx = window.hlx || {};
+
+window.hlx.codeBasePath = '';
+const scriptEl = document.querySelector('script[src$="/scripts/scripts.js"]');
+if (scriptEl) {
+  try {
+    [window.hlx.codeBasePath] = new URL(scriptEl.src).pathname.split('/scripts/scripts.js');
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.log(error);
+  }
+}
+
 withPlugin(RumPlugin);
 export async function init(options) {
-  window.hlx.codeBasePath = '';
-
-  const scriptEl = document.querySelector('script[src$="/scripts/scripts.js"]');
-  if (scriptEl) {
-    try {
-      [window.hlx.codeBasePath] = new URL(scriptEl.src).pathname.split('/scripts/scripts.js');
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.log(error);
-    }
-  }
-
   return loadPage(options);
 }
