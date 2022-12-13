@@ -622,7 +622,7 @@ export async function loadPage(options = {}) {
   await Promise.all(pluginsList.map((p) => p.preEager
     && p.preEager.call(null, p.options, pluginsApis)));
   if (options.loadEager) {
-    await options.loadEager(document, options);
+    await options.loadEager(document, options, pluginsApis);
   }
   await Promise.all(pluginsList.map((p) => p.postEager
     && p.postEager.call(null, p.options, pluginsApis)));
@@ -635,7 +635,7 @@ export async function loadPage(options = {}) {
   await Promise.all(pluginsList.map((p) => p.preLazy
     && p.preLazy.call(null, p.options, pluginsApis)));
   if (options.loadLazy) {
-    await options.loadLazy(document, options);
+    await options.loadLazy(document, options, pluginsApis);
   }
   await Promise.all(pluginsList.map((p) => p.postLazy
     && p.postLazy.call(null, p.options, pluginsApis)));
@@ -645,7 +645,7 @@ export async function loadPage(options = {}) {
       await Promise.all(pluginsList.map((p) => p.preDelayed
         && p.preDelayed.call(null, p.options, pluginsApis)));
       if (options.loadDelayed) {
-        await options.loadDelayed(document, options);
+        await options.loadDelayed(document, options, pluginsApis);
       }
       await Promise.all(pluginsList.map((p) => p.postDelayed
         && p.postDelayed.call(null, p.options, pluginsApis)));

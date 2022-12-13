@@ -3,17 +3,10 @@ import {
   init,
   loadBlock,
   loadCSS,
-  withPlugin,
 } from './lib-franklin.js';
 
 const LCP_BLOCKS = []; // add your LCP blocks to the list
 window.hlx.RUM_GENERATION = 'project-1'; // add your RUM generation information here
-
-const {
-  decorateBlock,
-  decorateButtons,
-  decorateIcons,
-} = await withPlugin('./plugins/decorator.js');
 
 function buildHeroBlock(main) {
   const h1 = main.querySelector('h1');
@@ -43,21 +36,21 @@ function buildAutoBlocks(main) {
  * Decorates the main element.
  * @param {Element} main The main element
  */
-export function decorateMain(main) {
+export function decorateMain(main, plugins) {
   // hopefully forward compatible button decoration
-  decorateButtons(main);
-  decorateIcons(main);
+  plugins.decorator.decorateButtons(main);
+  plugins.decorator.decorateIcons(main);
   buildAutoBlocks(main);
 }
 
 /**
  * loads everything needed to get to LCP.
  */
-async function loadEager(doc) {
+async function loadEager(doc, options, plugins) {
   document.documentElement.lang = 'en';
   const main = doc.querySelector('main');
   if (main) {
-    decorateMain(main);
+    decorateMain(main, plugins);
   }
 }
 
@@ -82,10 +75,10 @@ export function addFavIcon(href) {
  * loads a block named 'header' into header
  */
 
-export function loadHeader(header) {
+export function loadHeader(header, plugins) {
   const headerBlock = buildBlock('header', '');
   header.append(headerBlock);
-  decorateBlock(headerBlock);
+  plugins.decorator.decorateBlock(headerBlock);
   return loadBlock(headerBlock);
 }
 
@@ -93,25 +86,25 @@ export function loadHeader(header) {
  * loads a block named 'footer' into footer
  */
 
-export function loadFooter(footer) {
+export function loadFooter(footer, plugins) {
   const footerBlock = buildBlock('footer', '');
   footer.append(footerBlock);
-  decorateBlock(footerBlock);
+  plugins.decorator.decorateBlock(footerBlock);
   return loadBlock(footerBlock);
 }
 
 /**
  * loads everything that doesn't need to be delayed.
  */
-async function loadLazy(doc) {
+async function loadLazy(doc, options, plugins) {
   const main = doc.querySelector('main');
 
   const { hash } = window.location;
   const element = hash ? main.querySelector(hash) : false;
   if (hash && element) element.scrollIntoView();
 
-  loadHeader(doc.querySelector('header'));
-  loadFooter(doc.querySelector('footer'));
+  loadHeader(doc.querySelector('header'), plugins);
+  loadFooter(doc.querySelector('footer'), plugins);
 
   loadCSS(`${window.hlx.codeBasePath}/styles/lazy-styles.css`);
   addFavIcon(`${window.hlx.codeBasePath}/styles/favicon.svg`);
