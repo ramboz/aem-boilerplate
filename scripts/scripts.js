@@ -99,10 +99,73 @@ async function loadLazy(doc) {
   loadFooter(doc.querySelector('footer'));
 
   loadCSS(`${window.hlx.codeBasePath}/styles/lazy-styles.css`);
+  loadCSS(`${window.hlx.codeBasePath}/styles/overlays.css`);
   addFavIcon(`${window.hlx.codeBasePath}/styles/favicon.svg`);
   sampleRUM('lazy');
   sampleRUM.observe(main.querySelectorAll('div[data-block-name]'));
   sampleRUM.observe(main.querySelectorAll('picture > img'));
+
+  
+  document.body.style.position = 'relative';
+  const container = document.createElement('div');
+  container.setAttribute('id', 'overlay');
+  container.style.top = 0;
+  container.style.left = 0;
+  container.style.width = '100%';
+  container.style.height = '100%';
+  document.body.appendChild(container);
+  
+  main.querySelectorAll('a').forEach((links, i) => {
+    let rect = links.getBoundingClientRect();
+    // console.log('links positions', links);
+    const linksDiv = document.createElement('div');
+    linksDiv.setAttribute('id', 'linksDiv' + i);
+    linksDiv.setAttribute('class', 'linksDiv')
+    container.appendChild(linksDiv);
+    linksDiv.style.position = 'absolute';
+    linksDiv.style.height = rect.height + 'px';
+    linksDiv.style.width = rect.width + 'px';
+    linksDiv.style.left = rect.left + 'px';
+    linksDiv.style.top = rect.top + 'px';
+    linksDiv.style.backgroundColor = 'rgba(21, 140, 244, 0.5)';
+    const numData = document.createElement('medium');
+    numData.insertAdjacentText('afterbegin', '15.2%');
+    linksDiv.append(numData);
+  });
+
+  // main.querySelectorAll('.button-container').forEach((buttons, i) => {
+  // let rect = buttons.getBoundingClientRect();
+  // const buttonsDiv = document.createElement('div');
+  // buttonsDiv.setAttribute('id', 'buttonsDiv' + i);
+  // buttonsDiv.setAttribute('class', 'buttonsDiv')
+  // container.appendChild(buttonsDiv);
+  // buttonsDiv.style.position = 'absolute';
+  // buttonsDiv.style.height = rect.height + 'px';
+  // buttonsDiv.style.width = rect.width + 'px';
+  // buttonsDiv.style.left = rect.left + 'px';
+  // buttonsDiv.style.top = rect.top + 'px';
+  // buttonsDiv.style.backgroundColor = "rgba(246, 75, 75, 0.5)";
+  // const numData = document.createElement('h2');
+  // numData.insertAdjacentText('afterbegin', '6.25%');
+  // buttonsDiv.append(numData);
+  // })
+
+  main.querySelectorAll('img').forEach((img, i) => {
+  let rect = img.getBoundingClientRect();
+  const imgDiv = document.createElement('div');
+  imgDiv.setAttribute('id', 'imgDiv' + i);
+  imgDiv.setAttribute('class', 'imgDiv')
+  container.appendChild(imgDiv);
+  imgDiv.style.position = 'absolute';
+  imgDiv.style.height = rect.height + 'px';
+  imgDiv.style.width = rect.width + 'px';
+  imgDiv.style.left = rect.left + 'px';
+  imgDiv.style.top = rect.top + 'px';
+  const numData = document.createElement('h1');
+  numData.insertAdjacentText('afterbegin', '19.54%');
+  imgDiv.append(numData);
+  });
+
 }
 
 /**
