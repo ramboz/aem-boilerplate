@@ -8,7 +8,9 @@
     "test:watch": "npm test -- --watch",
     "lint:js": "eslint .",
     "lint:css": "stylelint 'blocks/**/*.css' 'styles/*.css'",
-    "lint": "npm run lint:js && npm run lint:css"
+    "lint": "npm run lint:js && npm run lint:css",
+    "franklin:plugin:add": "git remote add -f \"plugins/$npm_config_name\" \"$npm_config_url\" && git subtree add --squash --prefix \"plugins/$npm_config_name\" \"plugins/$npm_config_name\" main",
+    "franklin:plugin:update": "git fetch \"plugins/$npm_config_name\" main && git subtree pull --squash --prefix \"plugins/$npm_config_name\" \"plugins/$npm_config_name\" main"
   },
   "repository": {
     "type": "git",
