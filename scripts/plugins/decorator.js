@@ -1,5 +1,6 @@
 import {
   getMetadata,
+  loadCSS,
   readBlockConfig,
   toCamelCase,
   toClassName,
@@ -98,7 +99,7 @@ export function decorateBlocks(main) {
 /**
  * Set template (page structure) and theme (page styles).
  */
-export function decorateTemplateAndTheme() {
+export function decorateTemplateAndTheme(loadCssThemes = false) {
   const addClasses = (elem, classes) => {
     classes.split(',').forEach((v) => {
       elem.classList.add(toClassName(v.trim()));
@@ -107,7 +108,14 @@ export function decorateTemplateAndTheme() {
   const template = getMetadata('template');
   if (template) addClasses(document.body, template);
   const theme = getMetadata('theme');
-  if (theme) addClasses(document.body, theme);
+  if (theme) {
+    addClasses(document.body, theme);
+    if (loadCssThemes) {
+      theme.split(',').forEach((t) => {
+        loadCSS(`/styles/theme-${toClassName(t)}.css`);
+      });
+    }
+  }
 }
 
 /**
@@ -152,8 +160,8 @@ export const api = {
 /**
  * Logic to execute in the post eager phase
  */
-export function preEager() {
-  decorateTemplateAndTheme();
+export function preEager(options) {
+  decorateTemplateAndTheme(options.loadCssThemes);
 }
 
 /**
