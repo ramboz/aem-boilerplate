@@ -367,6 +367,10 @@ export const DecoratorPlugin = () => {
 const plugins = {};
 const pluginsApis = {};
 export async function withPlugin(pathOrFunction, options = {}) {
+  if (options.condition && !options.condition()) {
+    return null;
+  }
+
   let plugin;
   let pluginName;
   let pluginBasePath = `${window.hlx.codeBasePath}/scripts/`;
