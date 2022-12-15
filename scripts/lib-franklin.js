@@ -383,6 +383,9 @@ export async function withPlugin(pathOrFunction, options = {}) {
       pluginName = toCamelCase(pathTokens.pop());
     }
     plugin = await import(pathOrFunction);
+    if (plugin.init) {
+      plugin.init(options);
+    }
   } else if (typeof pathOrFunction === 'function') {
     plugin = pathOrFunction(options);
     pluginName = plugin.name || pathOrFunction.name;
@@ -395,6 +398,10 @@ export async function withPlugin(pathOrFunction, options = {}) {
     pluginsApis[pluginName] = plugin.api;
   }
   return plugin.api || null;
+}
+
+export async function setPluginOptions(pluginName, options) {
+  plugins[pluginName].options = { ...plugins[pluginName].options, ...options };
 }
 
 /**
