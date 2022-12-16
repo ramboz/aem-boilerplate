@@ -348,8 +348,10 @@ export const DecoratorPlugin = () => {
 
     api: {
       decorateBlock,
+      decorateBlocks,
       decorateButtons,
       decorateIcons,
+      decorateSections,
     },
 
     preEager: (options) => {
