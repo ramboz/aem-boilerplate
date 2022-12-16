@@ -387,6 +387,8 @@ export async function withPlugin(pathOrFunction, options = {}) {
     plugin = await import(pathOrFunction);
     if (plugin.init) {
       plugin.init(options);
+    } else if (plugin.default) {
+      plugin.default(options);
     }
   } else if (typeof pathOrFunction === 'function') {
     plugin = pathOrFunction(options);
