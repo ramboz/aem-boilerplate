@@ -368,6 +368,14 @@ export const DecoratorPlugin = () => {
 
 const plugins = {};
 const pluginsApis = {};
+const pluginContext = {
+  getMetadata,
+  loadCSS,
+  readBlockConfig,
+  toCamelCase,
+  toClassName,
+  plugins: pluginsApis,
+};
 export async function withPlugin(pathOrFunction, options = {}) {
   if (options.condition && !options.condition()) {
     return null;
@@ -386,9 +394,9 @@ export async function withPlugin(pathOrFunction, options = {}) {
     }
     plugin = await import(pathOrFunction);
     if (plugin.init) {
-      plugin.init(options);
+      plugin.init.call(pluginContext, options);
     } else if (plugin.default) {
-      plugin.default(options);
+      plugin.default.call(pluginContext, options);
     }
   } else if (typeof pathOrFunction === 'function') {
     plugin = pathOrFunction(options);
@@ -635,12 +643,12 @@ export async function loadPage(options = {}) {
   const pluginsList = Object.values(plugins);
 
   await Promise.all(pluginsList.map((p) => p.preEager
-    && p.preEager.call(null, p.options, pluginsApis)));
+    && p.preEager.call(pluginContext, p.options)));
   if (options.loadEager) {
-    await options.loadEager(document, options, pluginsApis);
+    await options.loadEager.call(pluginContext, document, options);
   }
   await Promise.all(pluginsList.map((p) => p.postEager
-    && p.postEager.call(null, p.options, pluginsApis)));
+    && p.postEager.call(pluginContext, p.options)));
 
   await waitForLCP(options.lcpBlocks || []);
 
@@ -648,22 +656,22 @@ export async function loadPage(options = {}) {
   await loadBlocks(main);
 
   await Promise.all(pluginsList.map((p) => p.preLazy
-    && p.preLazy.call(null, p.options, pluginsApis)));
+    && p.preLazy.call(pluginContext, p.options)));
   if (options.loadLazy) {
-    await options.loadLazy(document, options, pluginsApis);
+    await options.loadLazy.call(pluginContext, document, options);
   }
   await Promise.all(pluginsList.map((p) => p.postLazy
-    && p.postLazy.call(null, p.options, pluginsApis)));
+    && p.postLazy.call(pluginContext, p.options)));
 
   return new Promise((resolve) => {
     window.setTimeout(async () => {
       await Promise.all(pluginsList.map((p) => p.preDelayed
-        && p.preDelayed.call(null, p.options, pluginsApis)));
+        && p.preDelayed.call(pluginContext, p.options)));
       if (options.loadDelayed) {
-        await options.loadDelayed(document, options, pluginsApis);
+        await options.loadDelayed.call(pluginContext, document, options);
       }
       await Promise.all(pluginsList.map((p) => p.postDelayed
-        && p.postDelayed.call(null, p.options, pluginsApis)));
+        && p.postDelayed.call(pluginContext, p.options)));
       resolve();
     }, options.delayedDuration || 3000);
   });

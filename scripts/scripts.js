@@ -36,21 +36,21 @@ function buildAutoBlocks(main) {
  * Decorates the main element.
  * @param {Element} main The main element
  */
-export function decorateMain(main, plugins) {
+export function decorateMain(main) {
   // hopefully forward compatible button decoration
-  plugins.decorator.decorateButtons(main);
-  plugins.decorator.decorateIcons(main);
+  this.plugins.decorator.decorateButtons(main);
+  this.plugins.decorator.decorateIcons(main);
   buildAutoBlocks(main);
 }
 
 /**
  * loads everything needed to get to LCP.
  */
-async function loadEager(doc, options, plugins) {
+async function loadEager(doc) {
   document.documentElement.lang = 'en';
   const main = doc.querySelector('main');
   if (main) {
-    decorateMain(main, plugins);
+    decorateMain.call(this, main);
   }
 }
 
@@ -75,10 +75,10 @@ export function addFavIcon(href) {
  * loads a block named 'header' into header
  */
 
-export function loadHeader(header, plugins) {
+export function loadHeader(header) {
   const headerBlock = buildBlock('header', '');
   header.append(headerBlock);
-  plugins.decorator.decorateBlock(headerBlock);
+  this.plugins.decorator.decorateBlock(headerBlock);
   return loadBlock(headerBlock);
 }
 
@@ -86,25 +86,25 @@ export function loadHeader(header, plugins) {
  * loads a block named 'footer' into footer
  */
 
-export function loadFooter(footer, plugins) {
+export function loadFooter(footer) {
   const footerBlock = buildBlock('footer', '');
   footer.append(footerBlock);
-  plugins.decorator.decorateBlock(footerBlock);
+  this.plugins.decorator.decorateBlock(footerBlock);
   return loadBlock(footerBlock);
 }
 
 /**
  * loads everything that doesn't need to be delayed.
  */
-async function loadLazy(doc, options, plugins) {
+async function loadLazy(doc) {
   const main = doc.querySelector('main');
 
   const { hash } = window.location;
   const element = hash ? main.querySelector(hash) : false;
   if (hash && element) element.scrollIntoView();
 
-  loadHeader(doc.querySelector('header'), plugins);
-  loadFooter(doc.querySelector('footer'), plugins);
+  loadHeader.call(this, doc.querySelector('header'));
+  loadFooter.call(this, doc.querySelector('footer'));
 
   loadCSS(`${window.hlx.codeBasePath}/styles/lazy-styles.css`);
   addFavIcon(`${window.hlx.codeBasePath}/styles/favicon.svg`);
