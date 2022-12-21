@@ -631,6 +631,16 @@ export async function waitForLCP(lcpBlocks) {
   });
 }
 
+async function runPhase(name, pluginsList, options) {
+  await Promise.all(pluginsList.map((p) => p[`pre${name}`]
+    && p[`pre${name}`].call(pluginContext, p.options)));
+  if (options[`load${name}`]) {
+    await options[`load${name}`].call(pluginContext, document, options);
+  }
+  await Promise.all(pluginsList.map((p) => p[`post${name}`]
+    && p[`post${name}`].call(pluginContext, p.options)));
+}
+
 /**
  * The main loading logic for the page.
  * It defines the 3 phases (eager, lazy, delayed), and registers both
@@ -642,36 +652,17 @@ export async function waitForLCP(lcpBlocks) {
 export async function loadPage(options = {}) {
   const pluginsList = Object.values(plugins);
 
-  await Promise.all(pluginsList.map((p) => p.preEager
-    && p.preEager.call(pluginContext, p.options)));
-  if (options.loadEager) {
-    await options.loadEager.call(pluginContext, document, options);
-  }
-  await Promise.all(pluginsList.map((p) => p.postEager
-    && p.postEager.call(pluginContext, p.options)));
-
+  await runPhase('Eager', pluginsList, options);
   await waitForLCP(options.lcpBlocks || []);
 
   const main = document.querySelector('main');
   await loadBlocks(main);
 
-  await Promise.all(pluginsList.map((p) => p.preLazy
-    && p.preLazy.call(pluginContext, p.options)));
-  if (options.loadLazy) {
-    await options.loadLazy.call(pluginContext, document, options);
-  }
-  await Promise.all(pluginsList.map((p) => p.postLazy
-    && p.postLazy.call(pluginContext, p.options)));
+  await runPhase('Lazy', pluginsList, options);
 
   return new Promise((resolve) => {
     window.setTimeout(async () => {
-      await Promise.all(pluginsList.map((p) => p.preDelayed
-        && p.preDelayed.call(pluginContext, p.options)));
-      if (options.loadDelayed) {
-        await options.loadDelayed.call(pluginContext, document, options);
-      }
-      await Promise.all(pluginsList.map((p) => p.postDelayed
-        && p.postDelayed.call(pluginContext, p.options)));
+      await runPhase('Delayed', pluginsList, options);
       resolve();
     }, options.delayedDuration || 3000);
   });
