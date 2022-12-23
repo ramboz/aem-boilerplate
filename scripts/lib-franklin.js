@@ -521,10 +521,6 @@ export async function loadBlock(block) {
   block.setAttribute('data-block-status', 'loaded');
 }
 
-/**
- * Loads JS and CSS for all blocks in a container element.
- * @param {Element} main The container element
- */
 export async function loadBlocks(main) {
   updateSectionsStatus(main);
   const blocks = [...main.querySelectorAll('div.block')];
@@ -535,12 +531,6 @@ export async function loadBlocks(main) {
   }
 }
 
-/**
- * Returns a picture element with webp and fallbacks
- * @param {string} src The image URL
- * @param {boolean} eager load image eager
- * @param {Array} breakpoints breakpoints and corresponding params (eg. width)
- */
 export function createOptimizedPicture(src, alt = '', eager = false, breakpoints = [{ media: '(min-width: 400px)', width: '2000' }, { width: '750' }]) {
   const url = new URL(src, window.location.href);
   const picture = document.createElement('picture');
@@ -575,11 +565,6 @@ export function createOptimizedPicture(src, alt = '', eager = false, breakpoints
   return picture;
 }
 
-/**
- * Normalizes all headings within a container element.
- * @param {Element} el The container element
- * @param {[string]} allowedHeadings The list of allowed headings (h1 ... h6)
- */
 export function normalizeHeadings(el, allowedHeadings) {
   const allowed = allowedHeadings.map((h) => h.toLowerCase());
   el.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach((tag) => {
@@ -603,9 +588,6 @@ export function normalizeHeadings(el, allowedHeadings) {
   });
 }
 
-/**
- * load LCP block and/or wait for LCP in default content.
- */
 export async function waitForLCP(lcpBlocks) {
   const block = document.querySelector('.block');
   const hasLCPBlock = (block && lcpBlocks.includes(block.getAttribute('data-block-name')));
@@ -624,20 +606,12 @@ export async function waitForLCP(lcpBlocks) {
   });
 }
 
-/**
- * loads a block named 'header' into header
- */
-
 export function loadHeader(header) {
   const headerBlock = buildBlock('header', '');
   header.append(headerBlock);
   pluginsApis.decorator.decorateBlock(headerBlock);
   return loadBlock(headerBlock);
 }
-
-/**
- * loads a block named 'footer' into footer
- */
 
 export function loadFooter(footer) {
   const footerBlock = buildBlock('footer', '');
@@ -682,15 +656,6 @@ async function loadPage(options = {}) {
     }, options.delayedDuration || 3000);
   });
 }
-
-/*
- Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
-
- Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt. Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem. Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur? Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil molestiae consequatur, vel illum qui dolorem eum fugiat quo voluptas nulla pariatur?
-
- At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis praesentium voluptatum deleniti atque corrupti quos dolores et quas molestias excepturi sint occaecati cupiditate non provident, similique sunt in culpa qui officia deserunt mollitia animi, id est laborum et dolorum fuga. Et harum quidem rerum facilis est et expedita distinctio. Nam libero tempore, cum soluta nobis est eligendi optio cumque nihil impedit quo minus id quod maxime placeat facere possimus, omnis voluptas assumenda est, omnis dolor repellendus. Temporibus autem quibusdam et aut officiis debitis aut rerum necessitatibus saepe eveniet ut et voluptates repudiandae sint et molestiae non recusandae. Itaque earum rerum hic tenetur a sapiente delectus, ut aut reiciendis voluptatibus maiores alias consequatur aut perferendis doloribus asperiores repellat.
-
-*/
 
 window.hlx = window.hlx || {};
 window.hlx.codeBasePath = '';
