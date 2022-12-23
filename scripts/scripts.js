@@ -4,10 +4,13 @@ import {
   loadCSS,
   loadFooter,
   loadHeader,
+  withPlugin,
 } from './lib-franklin.js';
 
 const LCP_BLOCKS = []; // add your LCP blocks to the list
 window.hlx.RUM_GENERATION = 'project-1'; // add your RUM generation information here
+
+withPlugin('/plugins/perflogger/index.js');
 
 function buildHeroBlock(main) {
   const h1 = main.querySelector('h1');
