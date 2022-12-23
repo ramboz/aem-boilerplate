@@ -1,16 +1,55 @@
 import {
   buildBlock,
+  getMetadata,
   init,
   loadCSS,
   loadFooter,
   loadHeader,
+  toCamelCase,
   withPlugin,
 } from './lib-franklin.js';
 
 const LCP_BLOCKS = []; // add your LCP blocks to the list
 window.hlx.RUM_GENERATION = 'project-1'; // add your RUM generation information here
 
-await withPlugin('/plugins/experimentation/index.js');
+await withPlugin('/plugins/experimentation/index.js', {
+  condition: () => !!getMetadata('experiment'),
+  root: '/franklin-experiments',
+  configFile: 'franklin-experiment.json',
+  parser: (json) => {
+    const config = {};
+    try {
+      const keyMap = {
+        'Experiment Name': 'label',
+      };
+      Object.values(json.settings.data).reduce((cfg, entry) => {
+        const key = keyMap[entry.Name] || toCamelCase(entry.Name);
+        cfg[key] = key === 'blocks' ? entry.Value.split(/[,\n]/) : entry.Value;
+        return cfg;
+      }, config);
+
+      config.variantNames = [];
+      config.variants = {};
+      json.variants.data.forEach((row) => {
+        const {
+          Name, Label, Split, Page, Block,
+        } = row;
+        const variantName = toCamelCase(Name);
+        config.variantNames.push(variantName);
+        config.variants[variantName] = {
+          label: Label,
+          percentageSplit: Split,
+          pages: Page ? Page.trim().split(',') : [],
+          blocks: Block ? Block.trim().split(',') : [],
+        };
+      });
+      return config;
+    } catch (e) {
+      console.log('error parsing experiment config:', e);
+    }
+    return null;
+  },
+});
 
 function buildHeroBlock(main) {
   const h1 = main.querySelector('h1');
