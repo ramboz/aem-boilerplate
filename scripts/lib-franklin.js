@@ -369,6 +369,13 @@ const pluginContext = {
   toClassName,
   plugins: pluginsApis,
 };
+
+/**
+ * Registers a new plugin.
+ * @param {string|function} pathOrFunction The plugin reference to be registered
+ * @param {object} options An options map for the plugin
+ * @returns the public API for the plugin, or null if not methods are exposed
+ */
 export async function withPlugin(pathOrFunction, options = {}) {
   if (options.condition && !options.condition()) {
     return null;
@@ -405,6 +412,11 @@ export async function withPlugin(pathOrFunction, options = {}) {
   return plugin.api || null;
 }
 
+/**
+ * Set/update plugin options after initialization.
+ * @param {string} pluginName The plugin name
+ * @param {object} options An options map for the plugin
+ */
 export async function setPluginOptions(pluginName, options) {
   plugins[pluginName].options = { ...plugins[pluginName].options, ...options };
 }
@@ -576,34 +588,6 @@ export function createOptimizedPicture(src, alt = '', eager = false, breakpoints
 }
 
 /**
- * Normalizes all headings within a container element.
- * @param {Element} el The container element
- * @param {[string]} allowedHeadings The list of allowed headings (h1 ... h6)
- */
-export function normalizeHeadings(el, allowedHeadings) {
-  const allowed = allowedHeadings.map((h) => h.toLowerCase());
-  el.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach((tag) => {
-    const h = tag.tagName.toLowerCase();
-    if (allowed.indexOf(h) === -1) {
-      // current heading is not in the allowed list -> try first to "promote" the heading
-      let level = parseInt(h.charAt(1), 10) - 1;
-      while (allowed.indexOf(`h${level}`) === -1 && level > 0) {
-        level -= 1;
-      }
-      if (level === 0) {
-        // did not find a match -> try to "downgrade" the heading
-        while (allowed.indexOf(`h${level}`) === -1 && level < 7) {
-          level += 1;
-        }
-      }
-      if (level !== 7) {
-        tag.outerHTML = `<h${level} id="${tag.id}">${tag.textContent}</h${level}>`;
-      }
-    }
-  });
-}
-
-/**
  * load LCP block and/or wait for LCP in default content.
  */
 export async function waitForLCP(lcpBlocks) {
@@ -646,10 +630,17 @@ export function loadFooter(footer) {
   return loadBlock(footerBlock);
 }
 
+/**
+ * Executes the specified phase in the page load.
+ * @param {object[]} pluginsList A list of plugins to run in that phase
+ * @param {string} phase The phase to run (one of Eager, Lazy, Delayed)
+ * @param {*} options The options for the page load
+ */
 async function execPhase(pluginsList, phase, options) {
   await pluginsList.reduce((promise, plugin) => {
+    const aggregatedOptions = { ...options, ...plugin.options };
     if (plugin[`pre${phase}`]) {
-      return promise.then(() => plugin[`pre${phase}`].call(pluginContext, document, options));
+      return promise.then(() => plugin[`pre${phase}`].call(pluginContext, document, aggregatedOptions));
     }
     return promise;
   }, Promise.resolve());
@@ -657,8 +648,9 @@ async function execPhase(pluginsList, phase, options) {
     await options[`load${phase}`].call(pluginContext, document, options);
   }
   await pluginsList.reduce((promise, plugin) => {
+    const aggregatedOptions = { ...options, ...plugin.options };
     if (plugin[`post${phase}`]) {
-      return promise.then(() => plugin[`post${phase}`].call(pluginContext, document, options));
+      return promise.then(() => plugin[`post${phase}`].call(pluginContext, document, aggregatedOptions));
     }
     return promise;
   }, Promise.resolve());
@@ -710,7 +702,9 @@ withPlugin(RumPlugin);
 withPlugin(DecoratorPlugin);
 
 /**
- * init block utils
+ * Init the page load
+ *
+ * @param {object} options The options for the page load
  */
 export async function init(options) {
   return loadPage(options);
