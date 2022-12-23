@@ -1,20 +1,50 @@
+/*
+ * Copyright 2022 Adobe. All rights reserved.
+ * This file is licensed to you under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License. You may obtain a copy
+ * of the License at http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under
+ * the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR REPRESENTATIONS
+ * OF ANY KIND, either express or implied. See the License for the specific language
+ * governing permissions and limitations under the License.
+ */
 
+/**
+ * Retrieves the content of metadata tags.
+ * @param {string} name The metadata name (or property)
+ * @returns {string} The metadata value(s)
+ */
 export function getMetadata(name) {
   const attr = name && name.includes(':') ? 'property' : 'name';
   const meta = [...document.head.querySelectorAll(`meta[${attr}="${name}"]`)].map((m) => m.content).join(', ');
   return meta || '';
 }
 
+/**
+ * Sanitizes a name for use as class name.
+ * @param {string} name The unsanitized name
+ * @returns {string} The class name
+ */
 export function toClassName(name) {
   return typeof name === 'string'
     ? name.toLowerCase().replace(/[^0-9a-z]/gi, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
     : '';
 }
 
+/*
+ * Sanitizes a name for use as a js property name.
+ * @param {string} name The unsanitized name
+ * @returns {string} The camelCased name
+ */
 export function toCamelCase(name) {
   return toClassName(name).replace(/-([a-z])/g, (g) => g[1].toUpperCase());
 }
 
+/**
+ * Loads a CSS file.
+ * @param {string} href The path to the CSS file
+ */
 export function loadCSS(href, callback) {
   if (!document.querySelector(`head > link[href="${href}"]`)) {
     const link = document.createElement('link');
@@ -30,7 +60,11 @@ export function loadCSS(href, callback) {
   }
 }
 
-
+/**
+ * Extracts the config from a block.
+ * @param {Element} block The block element
+ * @returns {object} The block config
+ */
 export function readBlockConfig(block) {
   const config = {};
   block.querySelectorAll(':scope>div').forEach((row) => {
@@ -70,7 +104,11 @@ export function readBlockConfig(block) {
 }
 
 export const RumPlugin = () => {
-  
+  /**
+   * log RUM if part of the sample.
+   * @param {string} checkpoint identifies the checkpoint in funnel
+   * @param {Object} data additional data for RUM sample
+   */
   function sampleRUM(checkpoint, data = {}) {
     sampleRUM.defer = sampleRUM.defer || [];
     const defer = (fnname) => {
@@ -163,7 +201,10 @@ export const RumPlugin = () => {
 };
 
 export const DecoratorPlugin = () => {
-  
+  /**
+   * Replace icons with inline SVG and prefix with codeBasePath.
+   * @param {Element} element
+   */
   function decorateIcons(element = document) {
     element.querySelectorAll('span.icon').forEach(async (span) => {
       if (span.classList.length < 2 || !span.classList[1].startsWith('icon-')) {
@@ -185,6 +226,10 @@ export const DecoratorPlugin = () => {
     });
   }
 
+  /**
+   * Decorates a block.
+   * @param {Element} block The block element
+   */
   function decorateBlock(block) {
     const shortBlockName = block.classList[0];
     if (shortBlockName) {
@@ -236,12 +281,19 @@ export const DecoratorPlugin = () => {
     });
   }
 
+  /**
+   * Decorates all blocks in a container element.
+   * @param {Element} main The container element
+   */
   function decorateBlocks(main) {
     main
       .querySelectorAll('div.section > div > div')
       .forEach(decorateBlock);
   }
 
+  /**
+   * Set template (page structure) and theme (page styles).
+   */
   function decorateTemplateAndTheme() {
     const addClasses = (elem, classes) => {
       classes.split(',').forEach((v) => {
@@ -254,6 +306,10 @@ export const DecoratorPlugin = () => {
     if (theme) addClasses(document.body, theme);
   }
 
+  /**
+   * decorates paragraphs containing a single link as buttons.
+   * @param {Element} element container element
+   */
   function decorateButtons(element) {
     element.querySelectorAll('a').forEach((a) => {
       a.title = a.title || a.textContent;
@@ -353,6 +409,10 @@ export async function setPluginOptions(pluginName, options) {
   plugins[pluginName].options = { ...plugins[pluginName].options, ...options };
 }
 
+/**
+ * Updates all section status in a container element.
+ * @param {Element} main The container element
+ */
 export function updateSectionsStatus(main) {
   const sections = [...main.querySelectorAll(':scope > div.section')];
   for (let i = 0; i < sections.length; i += 1) {
@@ -370,6 +430,11 @@ export function updateSectionsStatus(main) {
   }
 }
 
+/**
+ * Builds a block DOM Element from a two dimensional array
+ * @param {string} blockName name of the block
+ * @param {any} content two dimensional array or string or object of content
+ */
 export function buildBlock(blockName, content) {
   const table = Array.isArray(content) ? content : [[content]];
   const blockEl = document.createElement('div');
@@ -396,6 +461,13 @@ export function buildBlock(blockName, content) {
   return (blockEl);
 }
 
+/**
+ * Gets the configuration for the given glock, and also passes
+ * the config to the `patchBlockConfig` methods in the plugins.
+ *
+ * @param {Element} block The block element
+ * @returns {object} The block config (blockName, cssPath and jsPath)
+ */
 function getBlockConfig(block) {
   const blockName = block.getAttribute('data-block-name');
   const cssPath = `${window.hlx.codeBasePath}/blocks/${blockName}/${blockName}.css`;
@@ -412,6 +484,10 @@ function getBlockConfig(block) {
   });
 }
 
+/**
+ * Loads JS and CSS for a block.
+ * @param {Element} block The block element
+ */
 export async function loadBlock(block) {
   const status = block.getAttribute('data-block-status');
   if (status === 'loading' || status === 'loaded') {
@@ -445,6 +521,10 @@ export async function loadBlock(block) {
   block.setAttribute('data-block-status', 'loaded');
 }
 
+/**
+ * Loads JS and CSS for all blocks in a container element.
+ * @param {Element} main The container element
+ */
 export async function loadBlocks(main) {
   updateSectionsStatus(main);
   const blocks = [...main.querySelectorAll('div.block')];
@@ -455,6 +535,12 @@ export async function loadBlocks(main) {
   }
 }
 
+/**
+ * Returns a picture element with webp and fallbacks
+ * @param {string} src The image URL
+ * @param {boolean} eager load image eager
+ * @param {Array} breakpoints breakpoints and corresponding params (eg. width)
+ */
 export function createOptimizedPicture(src, alt = '', eager = false, breakpoints = [{ media: '(min-width: 400px)', width: '2000' }, { width: '750' }]) {
   const url = new URL(src, window.location.href);
   const picture = document.createElement('picture');
@@ -489,6 +575,11 @@ export function createOptimizedPicture(src, alt = '', eager = false, breakpoints
   return picture;
 }
 
+/**
+ * Normalizes all headings within a container element.
+ * @param {Element} el The container element
+ * @param {[string]} allowedHeadings The list of allowed headings (h1 ... h6)
+ */
 export function normalizeHeadings(el, allowedHeadings) {
   const allowed = allowedHeadings.map((h) => h.toLowerCase());
   el.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach((tag) => {
@@ -512,6 +603,9 @@ export function normalizeHeadings(el, allowedHeadings) {
   });
 }
 
+/**
+ * load LCP block and/or wait for LCP in default content.
+ */
 export async function waitForLCP(lcpBlocks) {
   const block = document.querySelector('.block');
   const hasLCPBlock = (block && lcpBlocks.includes(block.getAttribute('data-block-name')));
@@ -530,12 +624,20 @@ export async function waitForLCP(lcpBlocks) {
   });
 }
 
+/**
+ * loads a block named 'header' into header
+ */
+
 export function loadHeader(header) {
   const headerBlock = buildBlock('header', '');
   header.append(headerBlock);
   pluginsApis.decorator.decorateBlock(headerBlock);
   return loadBlock(headerBlock);
 }
+
+/**
+ * loads a block named 'footer' into footer
+ */
 
 export function loadFooter(footer) {
   const footerBlock = buildBlock('footer', '');
@@ -580,6 +682,31 @@ async function loadPage(options = {}) {
     }, options.delayedDuration || 3000);
   });
 }
+
+/*
+ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
+ Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt. Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem. Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur? Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil molestiae consequatur, vel illum qui dolorem eum fugiat quo voluptas nulla pariatur?
+
+ At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis praesentium voluptatum deleniti atque corrupti quos dolores et quas molestias excepturi sint occaecati cupiditate non provident, similique sunt in culpa qui officia deserunt mollitia animi, id est laborum et dolorum fuga. Et harum quidem rerum facilis est et expedita distinctio. Nam libero tempore, cum soluta nobis est eligendi optio cumque nihil impedit quo minus id quod maxime placeat facere possimus, omnis voluptas assumenda est, omnis dolor repellendus. Temporibus autem quibusdam et aut officiis debitis aut rerum necessitatibus saepe eveniet ut et voluptates repudiandae sint et molestiae non recusandae. Itaque earum rerum hic tenetur a sapiente delectus, ut aut reiciendis voluptatibus maiores alias consequatur aut perferendis doloribus asperiores repellat.
+
+ Pellentesque interdum molestie varius. Vestibulum ac leo mauris. Pellentesque maximus lectus vitae diam dictum sodales. Proin elementum ut lectus elementum consequat. Phasellus eleifend enim lorem, id scelerisque sapien vulputate eu. Curabitur velit purus, congue sit amet tortor et, vehicula tempor odio. Nam rutrum orci eu lorem condimentum auctor. Morbi id sem non tortor mattis tempus vel vitae mauris. Vivamus tincidunt tortor congue risus ornare, id efficitur nisi accumsan. Aliquam et est pretium, luctus eros in, cursus lacus. Curabitur cursus justo vel dignissim euismod. Fusce at velit lacinia, eleifend nisl vel, porttitor ante. Duis posuere elit lectus, et facilisis est condimentum id. Ut facilisis quis lacus et lobortis.
+
+ Proin eleifend, sapien at venenatis pretium, velit eros pulvinar est, ac feugiat ex leo et nunc. Praesent ante dolor, gravida quis placerat ac, imperdiet ut libero. Vestibulum velit felis, sollicitudin a consequat at, hendrerit in nisi. Integer ac tincidunt eros. Proin eu elit risus. Quisque nec lectus dictum, consequat sem in, euismod est. Nulla aliquet purus sapien, ut ultricies lacus viverra eget. Morbi et dui felis. Etiam eget sem urna. Suspendisse non libero eget nunc porttitor vestibulum. Integer dui lectus, facilisis eu malesuada tincidunt, consectetur et nisi. Mauris eu diam at arcu scelerisque vehicula ut in risus. Fusce imperdiet aliquam urna, ac suscipit felis tempor et. Aenean neque ante, tincidunt vitae eros id, accumsan ultrices sem. Suspendisse sollicitudin sodales diam sed vulputate. Proin cursus ipsum massa, ac porttitor ligula finibus nec.
+
+ Morbi semper lacinia velit, bibendum vestibulum nibh porta quis. Aenean eleifend fringilla augue quis vehicula. Integer vitae enim arcu. Aliquam dictum tincidunt dolor, vel euismod mauris aliquam eget. Curabitur aliquet, diam sed gravida tempor, libero nibh dignissim lacus, a gravida tellus elit non est. Aliquam eleifend sed risus ultricies convallis. Nam molestie, dui vitae scelerisque blandit, metus ligula facilisis diam, non feugiat eros sapien sed tellus. Curabitur luctus facilisis nunc, ut cursus metus imperdiet ac. Vivamus euismod pretium ante sed faucibus. Proin accumsan tristique tellus, consequat viverra sem facilisis vel. Quisque nisi tortor, tincidunt auctor luctus vel, posuere eu sapien. Vivamus non lacus fermentum, feugiat eros sed, porta ex.
+
+ Fusce elementum finibus accumsan. Aliquam rutrum nunc nec pretium placerat. Nulla semper sagittis lectus, ac tincidunt arcu tincidunt eu. Integer porta convallis ante non varius. Nunc quis sem in nisl tincidunt egestas. Nullam nec sodales sem. Vestibulum et felis sed augue faucibus mattis. Quisque feugiat, lacus in malesuada commodo, felis mauris tincidunt urna, id ultricies mauris diam quis massa. Maecenas neque justo, auctor eget felis eu, hendrerit condimentum lectus. Duis consectetur mi augue, ac maximus velit ullamcorper sed. Proin faucibus, sem ut volutpat tincidunt, felis purus pretium leo, in tristique ligula enim eget dolor. Phasellus elementum, dui posuere mollis commodo, felis felis ultricies nisi, a consectetur ligula elit malesuada dui.
+
+ Aenean et ex erat. Sed pellentesque, risus et lacinia eleifend, dolor magna blandit enim, quis sagittis enim ipsum nec nulla. Phasellus eu pulvinar urna. Curabitur sed odio vitae dolor ultrices elementum. Donec posuere ultricies ipsum quis commodo. Nam pellentesque ligula vitae quam porta, et ullamcorper tellus iaculis. Nullam a est eu tellus tincidunt molestie at et nibh. Proin aliquam congue mollis. Donec faucibus quam dignissim scelerisque pellentesque. Suspendisse potenti. Integer sit amet tellus eu mi tincidunt cursus vel eget sem. Etiam sed tellus eget tellus convallis venenatis.
+
+Mauris sit amet tincidunt velit, vitae ultrices dolor. Vivamus magna urna, bibendum ac tincidunt egestas, tristique vitae nisl. Ut in volutpat dui. Morbi at eros porta, sodales quam eget, sodales libero. Phasellus ornare dolor at neque fermentum egestas. In tincidunt neque molestie lacus faucibus pulvinar. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Duis vestibulum, sem in pharetra interdum, diam justo pulvinar tellus, nec pellentesque leo nunc sit amet risus.
+
+Pellentesque consequat ac justo vel fringilla. Donec vitae libero non urna fringilla fringilla. Ut pretium mi ipsum. Etiam hendrerit ac lacus tempus laoreet. Integer ac gravida neque. Mauris malesuada nisi quis velit sagittis, eget viverra dui interdum. Mauris placerat est in rhoncus auctor. Pellentesque orci erat, ullamcorper quis nisi eu, hendrerit consequat nulla. Proin ullamcorper eget ex sed egestas. Vivamus egestas eros ex, a hendrerit risus tempor eget. Aliquam pellentesque tincidunt facilisis. Etiam ligula nunc, rutrum vel convallis ac, luctus nec nisi. Sed sed varius neque. Praesent nec efficitur quam. Sed et molestie leo. Mauris ut nibh ullamcorper, ullamcorper elit eget, tincidunt est.
+
+Praesent id purus id risus accumsan blandit. Etiam rhoncus ex vel velit bibendum, vitae tempus augue dapibus. Vivamus at facilisis tellus, vitae condimentum ligula. Cras pretium quam pretium ligula convallis, in aliquam ante ultricies. Quisque eu turpis consectetur, tempor nulla eu, accumsan ex. Suspendisse imperdiet tempus lectus, in luctus sem vehicula non. Morbi at ante lacus. Proin commodo, lectus nec dictum cursus, mauris ipsum congue elit, nec elementum arcu orci a elit. Nulla vitae eros ac enim tincidunt ullamcorper. Interdum et malesuada fames ac ante ipsum primis in faucibus. Nulla mattis, dolor a laoreet consectetur, tortor lorem imperdiet justo, non congue orci justo in felis. Suspendisse potenti. Pellentesque feugiat condimentum arcu sed elementum. Cras quis sapien pellentesque, egestas lorem et, porta ante. Sed ullamcorper urna libero, vitae tincidunt arcu bibendum ultricies. Maecenas in lorem gravida, iaculis felis in, posuere odio.
+
+*/
 
 window.hlx = window.hlx || {};
 window.hlx.codeBasePath = '';
