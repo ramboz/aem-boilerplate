@@ -409,10 +409,6 @@ export async function setPluginOptions(pluginName, options) {
   plugins[pluginName].options = { ...plugins[pluginName].options, ...options };
 }
 
-/**
- * Updates all section status in a container element.
- * @param {Element} main The container element
- */
 export function updateSectionsStatus(main) {
   const sections = [...main.querySelectorAll(':scope > div.section')];
   for (let i = 0; i < sections.length; i += 1) {
@@ -430,11 +426,6 @@ export function updateSectionsStatus(main) {
   }
 }
 
-/**
- * Builds a block DOM Element from a two dimensional array
- * @param {string} blockName name of the block
- * @param {any} content two dimensional array or string or object of content
- */
 export function buildBlock(blockName, content) {
   const table = Array.isArray(content) ? content : [[content]];
   const blockEl = document.createElement('div');
@@ -461,13 +452,6 @@ export function buildBlock(blockName, content) {
   return (blockEl);
 }
 
-/**
- * Gets the configuration for the given glock, and also passes
- * the config to the `patchBlockConfig` methods in the plugins.
- *
- * @param {Element} block The block element
- * @returns {object} The block config (blockName, cssPath and jsPath)
- */
 function getBlockConfig(block) {
   const blockName = block.getAttribute('data-block-name');
   const cssPath = `${window.hlx.codeBasePath}/blocks/${blockName}/${blockName}.css`;
@@ -484,10 +468,6 @@ function getBlockConfig(block) {
   });
 }
 
-/**
- * Loads JS and CSS for a block.
- * @param {Element} block The block element
- */
 export async function loadBlock(block) {
   const status = block.getAttribute('data-block-status');
   if (status === 'loading' || status === 'loaded') {
