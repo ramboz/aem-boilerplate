@@ -664,14 +664,6 @@ async function execPhase(pluginsList, phase, options) {
   }, Promise.resolve());
 }
 
-/**
- * The main loading logic for the page.
- * It defines the 3 phases (eager, lazy, delayed), and registers both
- * plugins and project hooks.
- *
- * @param {object} options
- * @returns
- */
 async function loadPage(options = {}) {
   const pluginsList = Object.values(plugins);
 
@@ -691,7 +683,6 @@ async function loadPage(options = {}) {
   });
 }
 
-// Setting hlx context
 window.hlx = window.hlx || {};
 window.hlx.codeBasePath = '';
 window.hlx.context = pluginContext;
@@ -704,14 +695,8 @@ if (scriptEl) {
     console.log(error);
   }
 }
-
-// Register core plugins
 withPlugin(RumPlugin);
 withPlugin(DecoratorPlugin);
-
-/**
- * init block utils
- */
 export async function init(options) {
   return loadPage(options);
 }
