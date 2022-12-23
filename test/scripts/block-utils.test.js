@@ -19,6 +19,11 @@ describe('Utils methods', () => {
     await blockUtils.init({ delayedDuration: 10 });
   });
 
+  it('Transforms strings to camel case', async () => {
+    expect(blockUtils.toCamelCase('HeLlO wOrLd')).to.equal('helloWorld');
+    expect(blockUtils.toCamelCase(null)).to.equal('');
+  });
+
   it('Sanitizes class name', async () => {
     expect(blockUtils.toClassName('Hello world')).to.equal('hello-world');
     expect(blockUtils.toClassName(null)).to.equal('');
@@ -105,6 +110,8 @@ describe('Sections and blocks', () => {
       'prop-2': ['First paragraph', 'Second paragraph'],
       'prop-3': 'https://www.adobe.com/',
       'prop-4': ['https://www.adobe.com/', 'https://www.hlx.live/'],
+      'prop-5': 'https://www.adobe.com/foo.webp',
+      'prop-6': ['https://www.adobe.com/bar.webp', 'https://www.adobe.com/baz.webp'],
     });
   });
 });
