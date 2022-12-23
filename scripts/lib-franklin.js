@@ -1,50 +1,20 @@
-/*
- * Copyright 2022 Adobe. All rights reserved.
- * This file is licensed to you under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License. You may obtain a copy
- * of the License at http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software distributed under
- * the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR REPRESENTATIONS
- * OF ANY KIND, either express or implied. See the License for the specific language
- * governing permissions and limitations under the License.
- */
 
-/**
- * Retrieves the content of metadata tags.
- * @param {string} name The metadata name (or property)
- * @returns {string} The metadata value(s)
- */
 export function getMetadata(name) {
   const attr = name && name.includes(':') ? 'property' : 'name';
   const meta = [...document.head.querySelectorAll(`meta[${attr}="${name}"]`)].map((m) => m.content).join(', ');
   return meta || '';
 }
 
-/**
- * Sanitizes a name for use as class name.
- * @param {string} name The unsanitized name
- * @returns {string} The class name
- */
 export function toClassName(name) {
   return typeof name === 'string'
     ? name.toLowerCase().replace(/[^0-9a-z]/gi, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
     : '';
 }
 
-/*
- * Sanitizes a name for use as a js property name.
- * @param {string} name The unsanitized name
- * @returns {string} The camelCased name
- */
 export function toCamelCase(name) {
   return toClassName(name).replace(/-([a-z])/g, (g) => g[1].toUpperCase());
 }
 
-/**
- * Loads a CSS file.
- * @param {string} href The path to the CSS file
- */
 export function loadCSS(href, callback) {
   if (!document.querySelector(`head > link[href="${href}"]`)) {
     const link = document.createElement('link');
@@ -60,11 +30,7 @@ export function loadCSS(href, callback) {
   }
 }
 
-/**
- * Extracts the config from a block.
- * @param {Element} block The block element
- * @returns {object} The block config
- */
+
 export function readBlockConfig(block) {
   const config = {};
   block.querySelectorAll(':scope>div').forEach((row) => {
@@ -104,11 +70,7 @@ export function readBlockConfig(block) {
 }
 
 export const RumPlugin = () => {
-  /**
-   * log RUM if part of the sample.
-   * @param {string} checkpoint identifies the checkpoint in funnel
-   * @param {Object} data additional data for RUM sample
-   */
+  
   function sampleRUM(checkpoint, data = {}) {
     sampleRUM.defer = sampleRUM.defer || [];
     const defer = (fnname) => {
@@ -201,10 +163,7 @@ export const RumPlugin = () => {
 };
 
 export const DecoratorPlugin = () => {
-  /**
-   * Replace icons with inline SVG and prefix with codeBasePath.
-   * @param {Element} element
-   */
+  
   function decorateIcons(element = document) {
     element.querySelectorAll('span.icon').forEach(async (span) => {
       if (span.classList.length < 2 || !span.classList[1].startsWith('icon-')) {
@@ -226,10 +185,6 @@ export const DecoratorPlugin = () => {
     });
   }
 
-  /**
-   * Decorates a block.
-   * @param {Element} block The block element
-   */
   function decorateBlock(block) {
     const shortBlockName = block.classList[0];
     if (shortBlockName) {
