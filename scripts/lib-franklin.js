@@ -281,19 +281,12 @@ export const DecoratorPlugin = () => {
     });
   }
 
-  /**
-   * Decorates all blocks in a container element.
-   * @param {Element} main The container element
-   */
   function decorateBlocks(main) {
     main
       .querySelectorAll('div.section > div > div')
       .forEach(decorateBlock);
   }
 
-  /**
-   * Set template (page structure) and theme (page styles).
-   */
   function decorateTemplateAndTheme() {
     const addClasses = (elem, classes) => {
       classes.split(',').forEach((v) => {
@@ -306,10 +299,6 @@ export const DecoratorPlugin = () => {
     if (theme) addClasses(document.body, theme);
   }
 
-  /**
-   * decorates paragraphs containing a single link as buttons.
-   * @param {Element} element container element
-   */
   function decorateButtons(element) {
     element.querySelectorAll('a').forEach((a) => {
       a.title = a.title || a.textContent;
