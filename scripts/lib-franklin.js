@@ -633,24 +633,29 @@ export function loadFooter(footer) {
 /**
  * Executes the specified phase in the page load.
  * @param {object[]} pluginsList A list of plugins to run in that phase
- * @param {string} phase The phase to run (one of Eager, Lazy, Delayed)
+ * @param {string} phase The phase to run (one of eager, lazy, delayed)
  * @param {*} options The options for the page load
  */
-async function execPhase(pluginsList, phase, options) {
+async function execPhase(pluginsList, phase = 'lazy', options = {}) {
+  let methodName = toCamelCase(`pre-${phase}`);
   await pluginsList.reduce((promise, plugin) => {
     const aggregatedOptions = { ...options, ...plugin.options };
-    if (plugin[`pre${phase}`]) {
-      return promise.then(() => plugin[`pre${phase}`].call(pluginContext, document, aggregatedOptions));
+    if (plugin[methodName]) {
+      return promise.then(() => plugin[methodName]
+        .call(pluginContext, document, aggregatedOptions));
     }
     return promise;
   }, Promise.resolve());
-  if (options[`load${phase}`]) {
-    await options[`load${phase}`].call(pluginContext, document, options);
+  methodName = toCamelCase(`load-${phase}`);
+  if (options[methodName]) {
+    await options[methodName].call(pluginContext, document, options);
   }
+  methodName = toCamelCase(`post-${phase}`);
   await pluginsList.reduce((promise, plugin) => {
     const aggregatedOptions = { ...options, ...plugin.options };
-    if (plugin[`post${phase}`]) {
-      return promise.then(() => plugin[`post${phase}`].call(pluginContext, document, aggregatedOptions));
+    if (plugin[methodName]) {
+      return promise.then(() => plugin[methodName]
+        .call(pluginContext, document, aggregatedOptions));
     }
     return promise;
   }, Promise.resolve());
@@ -667,17 +672,17 @@ async function execPhase(pluginsList, phase, options) {
 async function loadPage(options = {}) {
   const pluginsList = Object.values(plugins);
 
-  await execPhase(pluginsList, 'Eager', options);
+  await execPhase(pluginsList, 'eager', options);
 
   await waitForLCP(options.lcpBlocks || []);
 
   const main = document.querySelector('main');
   await loadBlocks(main);
 
-  await execPhase(pluginsList, 'Lazy', options);
+  await execPhase(pluginsList, 'lazy', options);
   return new Promise((resolve) => {
     window.setTimeout(async () => {
-      await execPhase(pluginsList, 'Delayed', options);
+      await execPhase(pluginsList, 'delayed', options);
       resolve();
     }, options.delayedDuration || 3000);
   });
