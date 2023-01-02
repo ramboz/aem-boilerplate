@@ -3,6 +3,7 @@ module.exports = {
   extends: 'airbnb-base',
   env: {
     browser: true,
+    mocha: true,
   },
   parser: '@babel/eslint-parser',
   parserOptions: {
