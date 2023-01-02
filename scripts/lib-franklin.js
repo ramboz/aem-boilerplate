@@ -705,6 +705,10 @@ if (scriptEl) {
 // Register core plugins
 withPlugin(RumPlugin);
 withPlugin(DecoratorPlugin);
+await withPlugin(`${window.hlx.codeBasePath}/tools/preview/preview.js`, {
+  condition: () => window.location.hostname.endsWith('hlx.page')
+    || window.location.hostname === 'localhost',
+});
 
 /**
  * Init the page load
