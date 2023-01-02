@@ -10,10 +10,6 @@
  * governing permissions and limitations under the License.
  */
 
-export const DEFAULT_OPTIONS = {
-  overlayClass: 'hlx-preview-overlay',
-};
-
 function createPreviewOverlay(cls) {
   const overlay = document.createElement('div');
   overlay.className = cls;
@@ -30,25 +26,29 @@ function createButton(label) {
 }
 
 function createPopupItem(item) {
-  const actions = item.actions.map((action) => `<div class="hlx-button"><a href="${action.href}">${action.label}</a></div>`);
+  const actions = typeof item === 'object'
+    ? item.actions.map((action) => `<div class="hlx-button"><a href="${action.href}">${action.label}</a></div>`)
+    : [];
   const div = document.createElement('div');
   div.className = `hlx-popup-item${item.isSelected ? ' is-selected' : ''}`;
   div.innerHTML = `
-    <h5 class="hlx-popup-item-label">${item.label}</h5>
-    <div class="hlx-popup-item-description">${item.description}</div>
-    <div class="hlx-popup-item-actions">${actions}</div>`;
+    <h5 class="hlx-popup-item-label">${typeof item === 'object' ? item.label : item}</h5>
+    ${item.description ? `<div class="hlx-popup-item-description">${item.description}</div>` : ''}
+    ${actions.length ? `<div class="hlx-popup-item-actions">${actions}</div>` : ''}`;
   return div;
 }
 
 function createPopupDialog(header, items = []) {
-  const actions = header.actions.map((action) => `<div class="hlx-button"><a href="${action.href}">${action.label}</a></div>`);
+  const actions = typeof header === 'object'
+    ? header.actions.map((action) => `<div class="hlx-button"><a href="${action.href}">${action.label}</a></div>`)
+    : [];
   const popup = document.createElement('div');
   popup.className = 'hlx-popup hlx-hidden';
   popup.innerHTML = `
     <div class="hlx-popup-header">
-      <h5 class="hlx-popup-header-label">${header.label}</h5>
-      <div class="hlx-popup-header-description">${header.description}</div>
-      <div class="hlx-popup-header-actions">${actions}</div>
+      <h5 class="hlx-popup-header-label">${typeof header === 'object' ? header.label : header}</h5>
+      ${header.description ? `<div class="hlx-popup-header-description">${header.description}</div>` : ''}
+      ${actions.length ? `<div class="hlx-popup-header-actions">${actions}</div>` : ''}
     </div>
     <div class="hlx-popup-items"></div>`;
   const list = popup.querySelector('.hlx-popup-items');
@@ -69,9 +69,13 @@ function createPopupButton(label, header, items) {
   return button;
 }
 
-function getOverlay(options) {
-  const config = { ...DEFAULT_OPTIONS, ...options };
-  return document.querySelector(`.${config.overlayClass}`);
+function getOverlay() {
+  let overlay = document.querySelector('.hlx-preview-overlay');
+  if (!overlay) {
+    overlay = createPreviewOverlay('hlx-preview-overlay');
+    document.body.append(overlay);
+  }
+  return overlay;
 }
 
 export const api = {
@@ -84,16 +88,7 @@ export const api = {
  * @return {Object} returns a badge or empty string
  */
 export async function preLazy(doc, options) {
-  const config = { ...DEFAULT_OPTIONS, ...options };
-  this.loadCSS(`${config.basePath}/preview.css`);
+  this.loadCSS(`${options.basePath}/preview.css`);
 
-  try {
-    let overlay = getOverlay(options);
-    if (!overlay) {
-      overlay = createPreviewOverlay(config.overlayClass);
-      document.body.append(overlay);
-    }
-  } catch (err) {
-    console.log(err);
-  }
+  getOverlay(options);
 }
