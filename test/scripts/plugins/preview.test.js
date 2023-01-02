@@ -1,5 +1,4 @@
 /* eslint-disable no-unused-expressions */
-/* global describe before beforeEach it */
 
 import { readFile } from '@web/test-runner-commands';
 import { expect } from '@esm-bundle/chai';
@@ -8,6 +7,10 @@ import { api, preLazy } from '../../../tools/preview/preview.js';
 
 document.body.innerHTML = await readFile({ path: '../dummy.html' });
 document.head.innerHTML = await readFile({ path: '../head.html' });
+
+const context = {
+  loadCSS: sinon.stub(),
+};
 
 describe('Preview overlay plugin', () => {
   before(async () => {
@@ -67,6 +70,18 @@ describe('Preview overlay plugin', () => {
         btn.click();
         expect(btn.querySelector('.hlx-popup').classList.contains('hlx-hidden')).to.false;
       });
+    });
+  });
+
+  describe('preLazy', () => {
+    it('adds the overlay to the page', async () => {
+      await preLazy.call(context, null, { basePath: '' });
+      expect(document.querySelector('.hlx-preview-overlay')).to.be.ok;
+    });
+
+    it('loads the preview overlay stylesheet', async () => {
+      await preLazy.call(context, null, { basePath: '' });
+      expect(context.loadCSS.called).to.be.true;
     });
   });
 });
