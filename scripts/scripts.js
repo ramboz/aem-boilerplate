@@ -87,18 +87,6 @@ async function loadLazy(doc) {
 
   loadCSS(`${window.hlx.codeBasePath}/styles/lazy-styles.css`);
   addFavIcon(`${window.hlx.codeBasePath}/styles/favicon.svg`);
-  sampleRUM('lazy');
-  sampleRUM.observe(main.querySelectorAll('div[data-block-name]'));
-  sampleRUM.observe(main.querySelectorAll('picture > img'));
-
-  if (window.location.hostname === 'localhost' || window.location.origin.endsWith('.hlx.page')) {
-    loadCSS(`${window.hlx.codeBasePath}/tools/preview/heatmap.css`);
-    const { decorateOverlays } = await import(`${window.hlx.codeBasePath}/tools/preview/heatmap.js`);
-    setTimeout(() => decorateOverlays(doc));
-    window.addEventListener('resize', () => {
-      window.requestAnimationFrame(() => decorateOverlays(doc));
-    });
-  }
 }
 
 /**
