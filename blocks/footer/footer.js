@@ -1,4 +1,4 @@
-import { readBlockConfig, DecoratorPlugin } from '../../scripts/lib-franklin.js';
+import { readBlockConfig } from '../../scripts/lib-franklin.js';
 
 /**
  * loads and decorates the footer
@@ -19,7 +19,7 @@ export default async function decorate(block) {
     const footer = document.createElement('div');
     footer.innerHTML = html;
 
-    await DecoratorPlugin.decorateIcons(footer);
+    await this.plugins.decorator.decorateIcons(footer);
     block.append(footer);
   }
 }
