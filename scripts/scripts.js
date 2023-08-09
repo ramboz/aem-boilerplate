@@ -7,8 +7,11 @@ import {
 } from './lib-franklin.js';
 
 const LCP_BLOCKS = []; // add your LCP blocks to the list
-window.hlx.RUM_GENERATION = 'project-1'; // add your RUM generation information here
 
+/**
+ * Builds hero block and prepends to main in a new section.
+ * @param {Element} main The container element
+ */
 function buildHeroBlock(main) {
   const h1 = main.querySelector('h1');
   const picture = main.querySelector('picture');
@@ -17,6 +20,18 @@ function buildHeroBlock(main) {
     const section = document.createElement('div');
     section.append(buildBlock('hero', { elems: [picture, h1] }));
     main.prepend(section);
+  }
+}
+
+/**
+ * load fonts.css and set a session storage flag
+ */
+async function loadFonts() {
+  await loadCSS(`${window.hlx.codeBasePath}/styles/fonts.css`);
+  try {
+    if (!window.location.hostname.includes('localhost')) sessionStorage.setItem('fonts-loaded', 'true');
+  } catch (e) {
+    // do nothing
   }
 }
 
@@ -37,7 +52,7 @@ function buildAutoBlocks(main) {
  * Decorates the main element.
  * @param {Element} main The main element
  */
-export function decorateMain(main) {
+function decorateMain(main) {
   // hopefully forward compatible button decoration
   this.plugins.decorator.decorateButtons(main);
   this.plugins.decorator.decorateIcons(main);
@@ -45,7 +60,8 @@ export function decorateMain(main) {
 }
 
 /**
- * loads everything needed to get to LCP.
+ * Loads everything needed to get to LCP.
+ * @param {Element} doc The container element
  */
 async function loadEager(doc) {
   document.documentElement.lang = 'en';
@@ -53,31 +69,22 @@ async function loadEager(doc) {
   if (main) {
     decorateMain.call(this, main);
   }
-}
 
-/**
- * Adds the favicon.
- * @param {string} href The favicon URL
- */
-export function addFavIcon(href) {
-  const link = document.createElement('link');
-  link.rel = 'icon';
-  link.type = 'image/svg+xml';
-  link.href = href;
-  const existingLink = document.querySelector('head link[rel="icon"]');
-  if (existingLink) {
-    existingLink.parentElement.replaceChild(link, existingLink);
-  } else {
-    document.getElementsByTagName('head')[0].appendChild(link);
+  try {
+    /* if desktop (proxy for fast connection) or fonts already loaded, load fonts.css */
+    if (window.innerWidth >= 900 || sessionStorage.getItem('fonts-loaded')) {
+      loadFonts();
+    }
+  } catch (e) {
+    // do nothing
   }
 }
 
 /**
- * loads everything that doesn't need to be delayed.
+ * Loads everything that doesn't need to be delayed.
+ * @param {Element} doc The container element
  */
 async function loadLazy(doc) {
-  const main = doc.querySelector('main');
-
   const { hash } = window.location;
   const element = hash ? doc.getElementById(hash.substring(1)) : false;
   if (hash && element) element.scrollIntoView();
@@ -86,12 +93,12 @@ async function loadLazy(doc) {
   loadFooter(doc.querySelector('footer'));
 
   loadCSS(`${window.hlx.codeBasePath}/styles/lazy-styles.css`);
-  addFavIcon(`${window.hlx.codeBasePath}/styles/favicon.svg`);
+  loadFonts();
 }
 
 /**
- * loads everything that happens a lot later, without impacting
- * the user experience.
+ * Loads everything that happens a lot later,
+ * without impacting the user experience.
  */
 function loadDelayed() {
   // load anything that can be postponed to the latest here

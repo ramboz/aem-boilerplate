@@ -11,6 +11,51 @@
  */
 
 /**
+ * Loads a CSS file.
+ * @param {string} href URL to the CSS file
+ */
+export async function loadCSS(href) {
+  return new Promise((resolve, reject) => {
+    if (!document.querySelector(`head > link[href="${href}"]`)) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = href;
+      link.onload = resolve;
+      link.onerror = reject;
+      document.head.append(link);
+    } else {
+      resolve();
+    }
+  });
+}
+
+/**
+ * Loads a non module JS file.
+ * @param {string} src URL to the JS file
+ * @param {Object} attrs additional optional attributes
+ */
+
+export async function loadScript(src, attrs) {
+  return new Promise((resolve, reject) => {
+    if (!document.querySelector(`head > script[src="${src}"]`)) {
+      const script = document.createElement('script');
+      script.src = src;
+      if (attrs) {
+      // eslint-disable-next-line no-restricted-syntax, guard-for-in
+        for (const attr in attrs) {
+          script.setAttribute(attr, attrs[attr]);
+        }
+      }
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.append(script);
+    } else {
+      resolve();
+    }
+  });
+}
+
+/**
  * Retrieves the content of metadata tags.
  * @param {string} name The metadata name (or property)
  * @returns {string} The metadata value(s)
@@ -22,8 +67,8 @@ export function getMetadata(name) {
 }
 
 /**
- * Sanitizes a name for use as class name.
- * @param {string} name The unsanitized name
+ * Sanitizes a string for use as class name.
+ * @param {string} name The unsanitized string
  * @returns {string} The class name
  */
 export function toClassName(name) {
@@ -32,32 +77,13 @@ export function toClassName(name) {
     : '';
 }
 
-/*
- * Sanitizes a name for use as a js property name.
- * @param {string} name The unsanitized name
+/**
+ * Sanitizes a string for use as a js property name.
+ * @param {string} name The unsanitized string
  * @returns {string} The camelCased name
  */
 export function toCamelCase(name) {
   return toClassName(name).replace(/-([a-z])/g, (g) => g[1].toUpperCase());
-}
-
-/**
- * Loads a CSS file.
- * @param {string} href The path to the CSS file
- */
-export function loadCSS(href, callback) {
-  if (!document.querySelector(`head > link[href="${href}"]`)) {
-    const link = document.createElement('link');
-    link.setAttribute('rel', 'stylesheet');
-    link.setAttribute('href', href);
-    if (typeof callback === 'function') {
-      link.onload = (e) => callback(e.type);
-      link.onerror = (e) => callback(e.type);
-    }
-    document.head.appendChild(link);
-  } else if (typeof callback === 'function') {
-    callback('noop');
-  }
 }
 
 /**
@@ -67,7 +93,7 @@ export function loadCSS(href, callback) {
  */
 export function readBlockConfig(block) {
   const config = {};
-  block.querySelectorAll(':scope>div').forEach((row) => {
+  block.querySelectorAll(':scope > div').forEach((row) => {
     if (row.children) {
       const cols = [...row.children];
       if (cols[1]) {
@@ -135,14 +161,19 @@ export const RumPlugin = () => {
         const id = `${hashCode(window.location.href)}-${new Date().getTime()}-${Math.random().toString(16).substr(2, 14)}`;
         const random = Math.random();
         const isSelected = (random * weight < 1);
-        // eslint-disable-next-line object-curly-newline
-        window.hlx.rum = { weight, id, random, isSelected, sampleRUM };
+        const urlSanitizers = {
+          full: () => window.location.href,
+          origin: () => window.location.origin,
+          path: () => window.location.href.replace(/\?.*$/, ''),
+        };
+        // eslint-disable-next-line object-curly-newline, max-len
+        window.hlx.rum = { weight, id, random, isSelected, sampleRUM, sanitizeURL: urlSanitizers[window.hlx.RUM_MASK_URL || 'path'] };
       }
       const { weight, id } = window.hlx.rum;
       if (window.hlx && window.hlx.rum && window.hlx.rum.isSelected) {
         const sendPing = (pdata = data) => {
           // eslint-disable-next-line object-curly-newline, max-len, no-use-before-define
-          const body = JSON.stringify({ weight, id, referer: window.location.href, generation: window.hlx.RUM_GENERATION, checkpoint, ...data });
+          const body = JSON.stringify({ weight, id, referer: window.hlx.rum.sanitizeURL(), checkpoint, ...data });
           const url = `https://rum.hlx.page/.rum/${weight}`;
           // eslint-disable-next-line no-unused-expressions
           navigator.sendBeacon(url, body);
@@ -200,28 +231,79 @@ export const RumPlugin = () => {
   };
 };
 
+const ICONS_CACHE = {};
 export const DecoratorPlugin = () => {
   /**
    * Replace icons with inline SVG and prefix with codeBasePath.
    * @param {Element} element
    */
-  function decorateIcons(element = document) {
-    element.querySelectorAll('span.icon').forEach(async (span) => {
-      if (span.classList.length < 2 || !span.classList[1].startsWith('icon-')) {
-        return;
-      }
-      const icon = span.classList[1].substring(5);
-      // eslint-disable-next-line no-use-before-define
-      const resp = await fetch(`${window.hlx.codeBasePath}/icons/${icon}.svg`);
-      if (resp.ok) {
-        const iconHTML = await resp.text();
-        if (iconHTML.match(/<style/i)) {
-          const img = document.createElement('img');
-          img.src = `data:image/svg+xml,${encodeURIComponent(iconHTML)}`;
-          span.appendChild(img);
-        } else {
-          span.innerHTML = iconHTML;
+  async function decorateIcons(element = document) {
+    // Prepare the inline sprite
+    let svgSprite = document.getElementById('franklin-svg-sprite');
+    if (!svgSprite) {
+      const div = document.createElement('div');
+      div.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" id="franklin-svg-sprite" style="display: none"></svg>';
+      svgSprite = div.firstElementChild;
+      document.body.append(div.firstElementChild);
+    }
+
+    // Download all new icons
+    const icons = [...element.querySelectorAll('span.icon')];
+    await Promise.all(icons.map(async (span) => {
+      const iconName = Array.from(span.classList).find((c) => c.startsWith('icon-')).substring(5);
+      if (!ICONS_CACHE[iconName]) {
+        ICONS_CACHE[iconName] = true;
+        try {
+          const response = await fetch(`${window.hlx.codeBasePath}/icons/${iconName}.svg`);
+          if (!response.ok) {
+            ICONS_CACHE[iconName] = false;
+            return;
+          }
+          // Styled icons don't play nice with the sprite approach because of shadow dom isolation
+          // and same for internal references
+          const svg = await response.text();
+          if (svg.match(/(<style | class=|url\(#| xlink:href="#)/)) {
+            ICONS_CACHE[iconName] = {
+              styled: true,
+              html: svg
+                // rescope ids and references to avoid clashes across icons;
+                .replaceAll(/ id="([^"]+)"/g, (_, id) => ` id="${iconName}-${id}"`)
+                .replaceAll(/="url\(#([^)]+)\)"/g, (_, id) => `="url(#${iconName}-${id})"`)
+                .replaceAll(/ xlink:href="#([^"]+)"/g, (_, id) => ` xlink:href="#${iconName}-${id}"`),
+            };
+          } else {
+            ICONS_CACHE[iconName] = {
+              html: svg
+                .replace('<svg', `<symbol id="icons-sprite-${iconName}"`)
+                .replace(/ width=".*?"/, '')
+                .replace(/ height=".*?"/, '')
+                .replace('</svg>', '</symbol>'),
+            };
+          }
+        } catch (error) {
+          ICONS_CACHE[iconName] = false;
+          // eslint-disable-next-line no-console
+          console.error(error);
         }
+      }
+    }));
+
+    const symbols = Object
+      .keys(ICONS_CACHE).filter((k) => !svgSprite.querySelector(`#icons-sprite-${k}`))
+      .map((k) => ICONS_CACHE[k])
+      .filter((v) => !v.styled)
+      .map((v) => v.html)
+      .join('\n');
+    svgSprite.innerHTML += symbols;
+
+    icons.forEach((span) => {
+      const iconName = Array.from(span.classList).find((c) => c.startsWith('icon-')).substring(5);
+      const parent = span.firstElementChild?.tagName === 'A' ? span.firstElementChild : span;
+      // Styled icons need to be inlined as-is, while unstyled ones can leverage the sprite
+      if (ICONS_CACHE[iconName].styled) {
+        parent.innerHTML = ICONS_CACHE[iconName].html;
+      } else {
+        parent.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg"><use href="#icons-sprite-${iconName}"/></svg>`;
       }
     });
   }
@@ -234,8 +316,8 @@ export const DecoratorPlugin = () => {
     const shortBlockName = block.classList[0];
     if (shortBlockName) {
       block.classList.add('block');
-      block.setAttribute('data-block-name', shortBlockName);
-      block.setAttribute('data-block-status', 'initialized');
+      block.dataset.blockName = shortBlockName;
+      block.dataset.blockStatus = 'initialized';
       const blockWrapper = block.parentElement;
       blockWrapper.classList.add(`${shortBlockName}-wrapper`);
       const section = block.closest('.section');
@@ -262,7 +344,8 @@ export const DecoratorPlugin = () => {
       });
       wrappers.forEach((wrapper) => section.append(wrapper));
       section.classList.add('section');
-      section.setAttribute('data-section-status', 'initialized');
+      section.dataset.sectionStatus = 'initialized';
+      section.style.display = 'none';
 
       /* process section metadata */
       const sectionMeta = section.querySelector('div.section-metadata');
@@ -295,9 +378,9 @@ export const DecoratorPlugin = () => {
    * Set template (page structure) and theme (page styles).
    */
   function decorateTemplateAndTheme() {
-    const addClasses = (elem, classes) => {
-      classes.split(',').forEach((v) => {
-        elem.classList.add(toClassName(v.trim()));
+    const addClasses = (element, classes) => {
+      classes.split(',').forEach((c) => {
+        element.classList.add(toClassName(c.trim()));
       });
     };
     const template = getMetadata('template');
@@ -429,23 +512,24 @@ export function updateSectionsStatus(main) {
   const sections = [...main.querySelectorAll(':scope > div.section')];
   for (let i = 0; i < sections.length; i += 1) {
     const section = sections[i];
-    const status = section.getAttribute('data-section-status');
+    const status = section.dataset.sectionStatus;
     if (status !== 'loaded') {
       const loadingBlock = section.querySelector('.block[data-block-status="initialized"], .block[data-block-status="loading"]');
       if (loadingBlock) {
-        section.setAttribute('data-section-status', 'loading');
+        section.dataset.sectionStatus = 'loading';
         break;
       } else {
-        section.setAttribute('data-section-status', 'loaded');
+        section.dataset.sectionStatus = 'loaded';
+        section.style.display = null;
       }
     }
   }
 }
 
 /**
- * Builds a block DOM Element from a two dimensional array
+ * Builds a block DOM Element from a two dimensional array, string, or object
  * @param {string} blockName name of the block
- * @param {any} content two dimensional array or string or object of content
+ * @param {*} content two dimensional array or string or object of content
  */
 export function buildBlock(blockName, content) {
   const table = Array.isArray(content) ? content : [[content]];
@@ -481,7 +565,7 @@ export function buildBlock(blockName, content) {
  * @returns {object} The block config (blockName, cssPath and jsPath)
  */
 function getBlockConfig(block) {
-  const blockName = block.getAttribute('data-block-name');
+  const { blockName } = block.dataset;
   const cssPath = `${window.hlx.codeBasePath}/blocks/${blockName}/${blockName}.css`;
   const jsPath = `${window.hlx.codeBasePath}/blocks/${blockName}/${blockName}.js`;
 
@@ -501,16 +585,14 @@ function getBlockConfig(block) {
  * @param {Element} block The block element
  */
 export async function loadBlock(block) {
-  const status = block.getAttribute('data-block-status');
+  const status = block.dataset.blockStatus;
   if (status === 'loading' || status === 'loaded') {
     return;
   }
-  block.setAttribute('data-block-status', 'loading');
+  block.dataset.blockStatus = 'loading';
   const { blockName, cssPath, jsPath } = getBlockConfig(block);
   try {
-    const cssLoaded = new Promise((resolve) => {
-      loadCSS(cssPath, resolve);
-    });
+    const cssLoaded = loadCSS(cssPath);
     const decorationComplete = new Promise((resolve) => {
       (async () => {
         try {
@@ -530,7 +612,7 @@ export async function loadBlock(block) {
     // eslint-disable-next-line no-console
     console.log(`failed to load block ${blockName}`, error);
   }
-  block.setAttribute('data-block-status', 'loaded');
+  block.dataset.blockStatus = 'loaded';
 }
 
 /**
@@ -550,10 +632,12 @@ export async function loadBlocks(main) {
 /**
  * Returns a picture element with webp and fallbacks
  * @param {string} src The image URL
- * @param {boolean} eager load image eager
- * @param {Array} breakpoints breakpoints and corresponding params (eg. width)
+ * @param {string} [alt] The image alternative text
+ * @param {boolean} [eager] Set loading attribute to eager
+ * @param {Array} [breakpoints] Breakpoints and corresponding params (eg. width)
+ * @returns {Element} The picture element
  */
-export function createOptimizedPicture(src, alt = '', eager = false, breakpoints = [{ media: '(min-width: 400px)', width: '2000' }, { width: '750' }]) {
+export function createOptimizedPicture(src, alt = '', eager = false, breakpoints = [{ media: '(min-width: 600px)', width: '2000' }, { width: '750' }]) {
   const url = new URL(src, window.location.href);
   const picture = document.createElement('picture');
   const { pathname } = url;
@@ -588,14 +672,14 @@ export function createOptimizedPicture(src, alt = '', eager = false, breakpoints
 }
 
 /**
- * load LCP block and/or wait for LCP in default content.
+ * Load LCP block and/or wait for LCP in default content.
  */
 export async function waitForLCP(lcpBlocks) {
   const block = document.querySelector('.block');
-  const hasLCPBlock = (block && lcpBlocks.includes(block.getAttribute('data-block-name')));
+  const hasLCPBlock = (block && lcpBlocks.includes(block.dataset.blockName));
   if (hasLCPBlock) await loadBlock(block);
 
-  document.querySelector('body').classList.add('appear');
+  document.body.style.display = null;
   const lcpCandidate = document.querySelector('main img');
   await new Promise((resolve) => {
     if (lcpCandidate && !lcpCandidate.complete) {
@@ -609,7 +693,9 @@ export async function waitForLCP(lcpBlocks) {
 }
 
 /**
- * loads a block named 'header' into header
+ * Loads a block named 'header' into header
+ * @param {Element} header header element
+ * @returns {Promise}
  */
 
 export function loadHeader(header) {
@@ -620,7 +706,9 @@ export function loadHeader(header) {
 }
 
 /**
- * loads a block named 'footer' into footer
+ * Loads a block named 'footer' into footer
+ * @param footer footer element
+ * @returns {Promise}
  */
 
 export function loadFooter(footer) {
@@ -662,12 +750,16 @@ async function execPhase(pluginsList, phase = 'lazy', options = {}) {
 }
 
 /**
+<<<<<<< HEAD
  * The main loading logic for the page.
  * It defines the 3 phases (eager, lazy, delayed), and registers both
  * plugins and project hooks.
  *
  * @param {object} options
  * @returns
+=======
+ * Auto initializiation.
+>>>>>>> franklin/main
  */
 async function loadPage(options = {}) {
   const pluginsList = Object.values(plugins);
@@ -688,19 +780,27 @@ async function loadPage(options = {}) {
   });
 }
 
-// Setting hlx context
-window.hlx = window.hlx || {};
-window.hlx.codeBasePath = '';
-window.hlx.context = pluginContext;
-const scriptEl = document.querySelector('script[src$="/scripts/scripts.js"]');
-if (scriptEl) {
-  try {
-    [window.hlx.codeBasePath] = new URL(scriptEl.src).pathname.split('/scripts/scripts.js');
-  } catch (error) {
-    // eslint-disable-next-line no-console
-    console.log(error);
+/*
+ * Setup block utils.
+ */
+export function setup() {
+  window.hlx = window.hlx || {};
+  window.hlx.RUM_MASK_URL = 'full';
+  window.hlx.codeBasePath = '';
+  window.hlx.context = pluginContext;
+  window.hlx.lighthouse = new URLSearchParams(window.location.search).get('lighthouse') === 'on';
+
+  const scriptEl = document.querySelector('script[src$="/scripts/scripts.js"]');
+  if (scriptEl) {
+    try {
+      [window.hlx.codeBasePath] = new URL(scriptEl.src).pathname.split('/scripts/scripts.js');
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.log(error);
+    }
   }
 }
+setup();
 
 // Register core plugins
 withPlugin(RumPlugin);
