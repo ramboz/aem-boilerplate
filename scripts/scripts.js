@@ -4,6 +4,7 @@ import {
   loadHeader,
   loadFooter,
   decorateButtons,
+  decorateIcon,
   decorateIcons,
   decorateSections,
   decorateBlocks,
@@ -14,6 +15,91 @@ import {
 } from './lib-franklin.js';
 
 const LCP_BLOCKS = []; // add your LCP blocks to the list
+
+const ICONS_CACHE = {};
+
+/**
+ * Attempt to replace <img> with <svg><use> to allow styling based on use of current color
+ * @param {icon} icon <img> element
+ */
+async function spriteIcon(icon) {
+  const { iconName } = icon.dataset;
+  if (!ICONS_CACHE[iconName]) {
+    try {
+      const response = await fetch(icon.src);
+      if (!response.ok) {
+        return;
+      }
+
+      const svg = await response.text();
+      const parser = new DOMParser();
+      const svgDOM = parser.parseFromString(svg, 'image/svg+xml');
+      const svgElem = svgDOM.querySelector('svg');
+
+      // only sprite icons that use currentColor
+      if (svg.toLowerCase().includes('currentcolor')) {
+        const symbol = document.createElementNS('http://www.w3.org/2000/svg', 'symbol');
+        symbol.id = `icons-sprite-${iconName}`;
+        symbol.setAttribute('viewBox', svgElem.getAttribute('viewBox'));
+        while (svgElem.firstElementChild) {
+          symbol.append(svgElem.firstElementChild);
+        }
+        ICONS_CACHE[iconName] = { symbol };
+        const svgSprite = document.getElementById('franklin-svg-sprite');
+        svgSprite.append(symbol);
+      } else {
+        icon.alt = svgElem.querySelector('title') ? svgElem.querySelector('title').textContent : iconName;
+        ICONS_CACHE[iconName] = true;
+      }
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error(error);
+    }
+  }
+
+  if (document.getElementById(`icons-sprite-${iconName}`)) {
+    const span = icon.closest('span.icon');
+    if (span) span.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg"><use href="#icons-sprite-${iconName}"/></svg>`;
+  }
+}
+
+/**
+ * Add intersection observer to all icons in an element, to sprite them if possible
+ * @param {Element} element element that contains icons
+ * @param {string} [prefix] prefix for icon names
+ */
+
+// eslint-disable-next-line import/prefer-default-export
+export function spriteIcons(element, prefix = '') {
+  // Prepare the inline sprite
+  let svgSprite = document.getElementById('franklin-svg-sprite');
+  if (!svgSprite) {
+    const div = document.createElement('div');
+    div.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" id="franklin-svg-sprite" style="display: none"></svg>';
+    svgSprite = div.firstElementChild;
+    document.body.append(div.firstElementChild);
+  }
+
+  const icons = [...element.querySelectorAll('span.icon')];
+  icons.forEach((span) => {
+    if (!span.firstElementChild) {
+      decorateIcon(span, prefix);
+    }
+    const img = span.querySelector('img');
+    if (!img) {
+      return;
+    }
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          spriteIcon(img);
+          observer.disconnect();
+        }
+      });
+    });
+    observer.observe(img);
+  });
+}
 
 /**
  * Builds hero block and prepends to main in a new section.
@@ -63,7 +149,7 @@ function buildAutoBlocks(main) {
 export function decorateMain(main) {
   // hopefully forward compatible button decoration
   decorateButtons(main);
-  decorateIcons(main);
+  spriteIcons(main);
   buildAutoBlocks(main);
   decorateSections(main);
   decorateBlocks(main);
