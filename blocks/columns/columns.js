@@ -1,4 +1,6 @@
 export default class Columns extends HTMLDivElement {
+  static tagName = 'div';
+
   connectedCallback() {
     const cols = [...this.firstElementChild.children];
     this.classList.add(`columns-${cols.length}-cols`);

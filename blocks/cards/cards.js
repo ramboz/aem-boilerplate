@@ -1,6 +1,8 @@
 import { createOptimizedPicture } from '../../scripts/aem.js';
 
 export default class Cards extends HTMLDivElement {
+  static tagName = 'div';
+
   connectedCallback() {
     /* change to ul, li */
     const ul = document.createElement('ul');

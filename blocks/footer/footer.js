@@ -5,6 +5,8 @@ import { readBlockConfig, decorateIcons } from '../../scripts/aem.js';
  * @param {Element} block The footer block element
  */
 export default class Footer extends HTMLDivElement {
+  static tagName = 'div';
+
   async connectedCallback() {
     const cfg = readBlockConfig(this);
     this.textContent = '';
