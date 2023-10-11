@@ -92,8 +92,6 @@ async function loadEager(doc) {
   } catch (e) {
     // do nothing
   }
-
-  loadScript('https://assets.adobedtm.com/d4d114c60e50/a0e989131fd5/launch-a27b33fc2dc0-development.min.js', { async: true });
 }
 
 /**
@@ -117,6 +115,8 @@ async function loadLazy(doc) {
   sampleRUM('lazy');
   sampleRUM.observe(main.querySelectorAll('div[data-block-name]'));
   sampleRUM.observe(main.querySelectorAll('picture > img'));
+
+  loadScript('https://assets.adobedtm.com/d4d114c60e50/a0e989131fd5/launch-a27b33fc2dc0-development.min.js', { async: true });
 }
 
 /**
