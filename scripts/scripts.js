@@ -11,6 +11,7 @@ import {
   waitForLCP,
   loadBlocks,
   loadCSS,
+  loadScript,
 } from './aem.js';
 
 const LCP_BLOCKS = []; // add your LCP blocks to the list
@@ -91,6 +92,8 @@ async function loadEager(doc) {
   } catch (e) {
     // do nothing
   }
+
+  loadScript('https://assets.adobedtm.com/d4d114c60e50/a0e989131fd5/launch-a27b33fc2dc0-development.min.js', { async: true });
 }
 
 /**
