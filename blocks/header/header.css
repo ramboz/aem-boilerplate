@@ -273,3 +273,10 @@ header nav .nav-sections ul > li > ul > li {
 header nav .nav-tools {
   grid-area: tools;
 }
+
+
+header nav .nav-tools .icon {
+  color: red;
+  width: 2.5rem;
+  height: 2.5rem;
+}
