@@ -72,7 +72,7 @@ body {
 }
 
 body.appear {
-  display: unset;
+  display: block;
 }
 
 header {
@@ -223,7 +223,7 @@ main img {
   width: 24px;
 }
 
-.icon svg {
+.icon img {
   height: 100%;
   width: 100%;
 }
