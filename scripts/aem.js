@@ -134,6 +134,7 @@ function sampleRUM(checkpoint, data = {}) {
 function setup() {
   window.hlx = window.hlx || {};
   window.hlx.RUM_MASK_URL = 'full';
+  window.hlx.elementPrefix = 'hlx';
   window.hlx.codeBasePath = '';
   window.hlx.lighthouse = new URLSearchParams(window.location.search).get('lighthouse') === 'on';
 
@@ -569,7 +570,17 @@ async function loadBlock(block) {
             const mod = await import(
               `${window.hlx.codeBasePath}/blocks/${blockName}/${blockName}.js`
             );
-            if (mod.default) {
+            if (mod.default && !Object.getOwnPropertyDescriptor(mod.default, 'prototype')?.writable) {
+              const tagName = mod.default.tagName || mod.default.TAG_NAME || 'div';
+              const customElementname = `${window.hlx.elementPrefix}-${blockName}`;
+              if (!customElements.get(customElementname)) {
+                customElements.define(customElementname, mod.default, { extends: tagName });
+              }
+              const el = document.createElement(tagName, { is: customElementname });
+              el.classList.add(...block.classList.values());
+              el.innerHTML = block.innerHTML;
+              block.replaceWith(el);
+            } else if (mod.default) {
               await mod.default(block);
             }
           } catch (error) {

@@ -4,22 +4,26 @@ import { readBlockConfig, decorateIcons } from '../../scripts/aem.js';
  * loads and decorates the footer
  * @param {Element} block The footer block element
  */
-export default async function decorate(block) {
-  const cfg = readBlockConfig(block);
-  block.textContent = '';
+export default class Footer extends HTMLDivElement {
+  static tagName = 'div';
 
-  // fetch footer content
-  const footerPath = cfg.footer || '/footer';
-  const resp = await fetch(`${footerPath}.plain.html`, window.location.pathname.endsWith('/footer') ? { cache: 'reload' } : {});
+  async connectedCallback() {
+    const cfg = readBlockConfig(this);
+    this.textContent = '';
 
-  if (resp.ok) {
-    const html = await resp.text();
+    // fetch footer content
+    const footerPath = cfg.footer || '/footer';
+    const resp = await fetch(`${footerPath}.plain.html`, window.location.pathname.endsWith('/footer') ? { cache: 'reload' } : {});
 
-    // decorate footer DOM
-    const footer = document.createElement('div');
-    footer.innerHTML = html;
+    if (resp.ok) {
+      const html = await resp.text();
 
-    decorateIcons(footer);
-    block.append(footer);
+      // decorate footer DOM
+      const footer = document.createElement('div');
+      footer.innerHTML = html;
+
+      decorateIcons(footer);
+      this.append(footer);
+    }
   }
 }
